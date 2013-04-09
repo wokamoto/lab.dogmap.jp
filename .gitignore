@@ -18,7 +18,6 @@ wp-content/cache/supercache/*
 /readme.html
 /readme-ja.html
 /license.txt
-/git-payload.php
 /*.html
 /*.js
 /*.css
