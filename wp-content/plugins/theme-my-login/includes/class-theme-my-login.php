@@ -21,7 +21,7 @@ class Theme_My_Login extends Theme_My_Login_Abstract {
 	 * @since 6.3.2
 	 * @const string
 	 */
-	const version = '6.3.6';
+	const version = '6.3.8';
 
 	/**
 	 * Holds options key
@@ -143,14 +143,13 @@ class Theme_My_Login extends Theme_My_Login_Abstract {
 		add_action( 'wp_print_footer_scripts', array( &$this, 'wp_print_footer_scripts' ) );
 		add_action( 'wp_authenticate',         array( &$this, 'wp_authenticate'         ) );
 
-		add_filter( 'rewrite_rules_array',    array( &$this, 'rewrite_rules_array'    )        );
-		add_filter( 'template_include',       array( &$this, 'template_include'       )        );
 		add_filter( 'site_url',               array( &$this, 'site_url'               ), 10, 3 );
 		add_filter( 'logout_url',             array( &$this, 'logout_url'             ), 10, 2 );
 		add_filter( 'single_post_title',      array( &$this, 'single_post_title'      )        );
 		add_filter( 'the_title',              array( &$this, 'the_title'              ), 10, 2 );
 		add_filter( 'wp_setup_nav_menu_item', array( &$this, 'wp_setup_nav_menu_item' )        );
-		add_filter( 'post_type_link',         array( &$this, 'post_type_link'         ), 10, 4 );
+		add_filter( 'wp_list_pages_excludes', array( &$this, 'wp_list_pages_excludes' )        );
+		add_filter( 'page_link',              array( &$this, 'page_link'              ), 10, 2 );
 
 		add_action( 'tml_new_user_registered',   'wp_new_user_notification', 10, 2 );
 		add_action( 'tml_user_password_changed', 'wp_password_change_notification' );
@@ -185,19 +184,6 @@ class Theme_My_Login extends Theme_My_Login_Abstract {
 	 */
 	public function init() {
 		self::load_textdomain();
-
-		register_post_type( 'tml_page', array(
-			'public'       => true,
-			'show_in_menu' => 'theme_my_login',
-			'hierarchical' => true,
-			'supports'     => array( 'title', 'editor', 'page-attributes' ),
-			'rewrite'      => false,
-			'labels'       => array(
-				'name'          => __( 'Theme My Login Pages', 'theme-my-login' ),
-				'singular_name' => __( 'Theme My Login Page',  'theme-my-login' ),
-				'menu_name'     => __( 'Pages' )
-			)
-		) );
 
 		$this->errors = new WP_Error();
 
@@ -573,44 +559,6 @@ if(typeof wpOnload=='function')wpOnload()
 	 ************************************************************************************************************************/
 
 	/**
-	 * Generates verbose rewrite rules for plugin pages
-	 *
-	 * @since 6.3.4
-	 *
-	 * @param array $rules Rewrite rules
-	 * @return array Rewrite rules
-	 */
-	public function rewrite_rules_array( $rules ) {
-		$pages = get_posts( array(
-			'post_type'      => 'tml_page',
-			'posts_per_page' => -1
-		) );
-
-		$tml_rules = array();
-		foreach ( $pages as $page ) {
-			$tml_rules["{$page->post_name}/?$"] = "index.php?tml_page={$page->post_name}";
-		}
-
-		return array_merge( $tml_rules, $rules );
-	}
-
-	/**
-	 * Uses Page template hierarchy for TML pages
-	 *
-	 * @since 6.3
-	 *
-	 * @param string $template The template to include
-	 * @return string The template to include
-	 */
-	public function template_include( $template ) {
-		if ( self::is_tml_page() ) {
-			if ( $page_template = get_page_template() )
-				return $page_template;
-		}
-		return $template;
-	}
-
-	/**
 	 * Rewrites URL's containing wp-login.php created by site_url()
 	 *
 	 * @since 6.0
@@ -654,7 +602,6 @@ if(typeof wpOnload=='function')wpOnload()
 		$logout_url = self::get_page_link( 'logout' );
 		if ( $redirect )
 			$logout = add_query_arg( 'redirect_to', urlencode( $redirect ), $logout_url );
-		$logout_url = wp_nonce_url( $logout_url, 'log-out' );
 		return $logout_url;
 	}
 
@@ -716,7 +663,7 @@ if(typeof wpOnload=='function')wpOnload()
 		if ( is_admin() )
 			return $menu_item;
 
-		if ( 'tml_page' == $menu_item->object && self::is_tml_page( 'login', $menu_item->object_id ) ) {
+		if ( 'page' == $menu_item->object && self::is_tml_page( 'login', $menu_item->object_id ) ) {
 			if ( is_user_logged_in() ) {
 				$menu_item->title = $this->get_instance()->get_title( 'logout' );
 				$menu_item->url   = wp_logout_url();
@@ -726,24 +673,38 @@ if(typeof wpOnload=='function')wpOnload()
 	}
 
 	/**
-	 * Applies page permalink to TML pages
+	 * Excludes pages from wp_list_pages
 	 *
-	 * @since 6.3
+	 * @since 6.3.7
 	 *
-	 * @param string $post_link Post link
-	 * @param object $post Post object
-	 * @param bool $leavename
-	 * @param bool $sample
-	 * @return string Post link
+	 * @param array $exclude Page IDs to exclude
+	 * @return array Page IDs to exclude
 	 */
-	public function post_type_link( $post_link, $post, $leavename, $sample ) {
-		global $wp_rewrite;
+	public function wp_list_pages_excludes( $exclude ) {
+		$pages = get_posts( array(
+			'post_type'      => 'page',
+			'post_status'    => 'any',
+			'meta_key'       => '_tml_action',
+			'posts_per_page' => -1
+		) );
+		$pages = wp_list_pluck( $pages, 'ID' );
 
-		if ( $wp_rewrite->using_permalinks() ) {
-			if ( 'tml_page' == $post->post_type )
-				$post_link = get_page_link( $post->ID, $leavename, $sample );
-		}
-		return $post_link;
+		return array_merge( $exclude, $pages );
+	}
+
+	/**
+	 * Adds nonce to logout link
+	 *
+	 * @since 6.3.7
+	 *
+	 * @param string $link Page link
+	 * @param int $post_id Post ID
+	 * @return string Page link
+	 */
+	public function page_link( $link, $post_id ) {
+		if ( self::is_tml_page( 'logout', $post_id ) )
+			$link = add_query_arg( '_wpnonce', wp_create_nonce( 'log-out' ), $link );
+		return $link;
 	}
 
 
@@ -819,16 +780,13 @@ if(typeof wpOnload=='function')wpOnload()
 		if ( ! $page = get_post( $page ) )
 			return false;
 
-		if ( 'tml_page' != $page->post_type )
+		if ( 'page' != $page->post_type )
 			return false;
-
-		if ( empty( $action ) )
-			return true;
 
 		if ( ! $page_action = self::get_page_action( $page->ID ) )
 			return false;
 
-		if ( $action == $page_action )
+		if ( empty( $action ) || $action == $page_action )
 			return true;
 
 		return false;
@@ -867,6 +825,10 @@ if(typeof wpOnload=='function')wpOnload()
 			$link = add_query_arg( array_map( 'rawurlencode', $args ), $link );
 		}
 
+		// Respect FORCE_SSL_LOGIN
+		if ( 'login' == $action && force_ssl_login() )
+			$link = preg_replace( '|^http://|', 'https://', $link );
+
 		return apply_filters( 'tml_page_link', $link, $action, $query );
 	}
 
@@ -886,9 +848,10 @@ if(typeof wpOnload=='function')wpOnload()
 		elseif ( 'retrievepassword' == $action )
 			$action = 'lostpassword';
 
-		$page_id = wp_cache_get( $action, 'tml_page_ids' );
-		if ( false === $page_id ) {
-			$page_id = $wpdb->get_var( $wpdb->prepare( "SELECT p.ID FROM $wpdb->posts p LEFT JOIN $wpdb->postmeta pmeta ON p.ID = pmeta.post_id WHERE p.post_type = 'tml_page' AND pmeta.meta_key = '_tml_action' AND pmeta.meta_value = %s", $action ) );
+		if ( ! $page_id = wp_cache_get( $action, 'tml_page_ids' ) ) {
+			$page_id = $wpdb->get_var( $wpdb->prepare( "SELECT p.ID FROM $wpdb->posts p LEFT JOIN $wpdb->postmeta pmeta ON p.ID = pmeta.post_id WHERE p.post_type = 'page' AND pmeta.meta_key = '_tml_action' AND pmeta.meta_value = %s", $action ) );
+			if ( ! $page_id )
+				return null;
 			wp_cache_add( $action, $page_id, 'tml_page_ids' );
 		}
 		return $page_id;
