@@ -4,7 +4,7 @@ Plugin Name: Crazy Bone
 Plugin URI: 
 Description: Tracks user name, time of login, IP address and browser user agent.
 Author: wokamoto
-Version: 0.1.0
+Version: 0.2.0
 Author URI: http://dogmap.jp/
 Text Domain: user-login-log
 Domain Path: /languages/
@@ -13,7 +13,7 @@ License:
  Released under the GPL license
   http://www.gnu.org/copyleft/gpl.html
 
-  Copyright 2012 (email : wokamoto1973@gmail.com)
+  Copyright 2013 (email : wokamoto1973@gmail.com)
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -38,35 +38,44 @@ load_plugin_textdomain(user_login_log::TEXT_DOMAIN, false, dirname(plugin_basena
 
 class user_login_log {
 	const USER_META_KEY = 'user_login_log';
-	const DEBUG_MODE    = true;
 	const TEXT_DOMAIN   = 'user-login-log';
 	const LIST_PER_PAGE = 20;
+	const DEBUG_MODE    = false;
 
-	const SECMINUITE  = 60;
-	const SECHOUR     = 3600;
-	const SECDAY      = 86400;
-	const SECMONTH    = 2592000;
-	const SECYEAR     = 31536000;
+	const SEC_MINUITE   = 60;
+	const SEC_HOUR      = 3600;
+	const SEC_DAY       = 86400;
+	const SEC_MONTH     = 2592000;
+	const SEC_YEAR      = 31536000;
 
 	private $ull_table = 'user_login_log';
 	private $admin_action;
-	private $admin_hook = array();
+	private $plugin_version;
 
 	function __construct(){
 		global $wpdb;
 
 		$this->ull_table = $wpdb->prefix.$this->ull_table;
+		$this->admin_action = admin_url('profile.php') . '?page=' . plugin_basename(__FILE__);
+
+		$data = get_file_data(__FILE__, array('version' => 'Version'));
+		$this->plugin_version = isset($data['version']) ? $data['version'] : '';
 
 		add_action('wp_login', array(&$this, 'user_login_log'), 10, 2);
 		add_action('wp_authenticate', array(&$this, 'wp_authenticate_log'), 10, 2);
 		add_action('login_form_logout', array(&$this, 'user_logout_log'));
 
+		add_action('admin_enqueue_scripts', array(&$this,'enqueue_scripts'));
+		add_action('wp_enqueue_scripts', array(&$this,'enqueue_scripts'));
+
 		add_action('admin_bar_init',  array(&$this, 'admin_bar_init'), 9999);
-		add_action('wp_enqueue_scripts',  array(&$this, 'enqueue_scripts'));
 		add_action('admin_menu', array(&$this,'add_admin_menu'));
 
 		add_action('wp_ajax_ull_info', array(&$this, 'ajax_info'));
 		add_action('wp_ajax_nopriv_ull_info', array(&$this, 'ajax_info'));
+
+		add_action('wp_ajax_dismiss-ull-wp-pointer', array(&$this, 'ajax_dismiss'));
+		add_action('wp_ajax_nopriv_dismiss-ull-wp-pointer', array(&$this, 'ajax_dismiss'));
 
 		register_activation_hook(__FILE__, array(&$this, 'activate'));
 		register_deactivation_hook(__FILE__, array(&$this, 'deactivate'));
@@ -98,19 +107,29 @@ CREATE TABLE `{$this->ull_table}` (
  `country_name` varchar(100) NULL,
  `country_code` varchar(10) NULL,
  PRIMARY KEY (`ID`),
- KEY `activity_status` (`activity_status`)
+ KEY `user_id` (`user_id`),
+ KEY `activity_status` (`activity_status`),
+ KEY `activity_date` (`activity_date`),
+ KEY `country_code` (`country_code`)
 )");
 		}
 	}
 
-	public function admin_bar_init() {
-		add_action('admin_bar_menu',  array(&$this, 'customize_admin_bar_menu'), 9999);
-		wp_enqueue_style('user_login_log', plugins_url('css/user_login_log.css', __FILE__ ), array(), '20130508');
+	public function enqueue_scripts(){
+		if (!is_user_logged_in())
+			return;
+
+		wp_enqueue_style('wp-pointer');
 		wp_enqueue_script('jquery');
+		wp_enqueue_script('wp-pointer', array('jquery'));
 	}
 
-	public function enqueue_scripts(){
-		wp_enqueue_script('jquery');
+	public function admin_bar_init() {
+		add_action('admin_bar_menu',  array(&$this, 'customize_admin_bar_menu'), 9999);
+		wp_enqueue_style('user_login_log', plugins_url('css/user_login_log.css', __FILE__), array(), $this->plugin_version);
+
+		add_action('admin_footer', array(&$this, 'footer_js'));
+		add_action('wp_footer',    array(&$this, 'footer_js'));
 	}
 
 	public function customize_admin_bar_menu($wp_admin_bar){
@@ -119,18 +138,15 @@ CREATE TABLE `{$this->ull_table}` (
 			return;
 
 		$wp_admin_bar->add_menu(array(
-			'id'     => 'user-login-logging',
+			'id'     => 'user-login-log',
 			'parent' => 'my-account',
 			'title'  => $title,
 			'meta'   => array(),
 			'href'   => $this->admin_action,
 		));
-
-		add_action('admin_footer', array(&$this, 'footer_js'));
-		add_action('wp_footer',    array(&$this, 'footer_js'));
 	}
 
-	private function login_info() {
+	private function last_login_info() {
 		$user = wp_get_current_user();
 		if (is_wp_error($user))
 			return false;
@@ -142,6 +158,19 @@ CREATE TABLE `{$this->ull_table}` (
 		$date = isset($login_log['Date']) ? strtotime($login_log['Date']) : time();
 		$ip   = isset($login_log['IP']) ? $login_log['IP'] : '';
 		$ua   = isset($login_log['User Agent']) ? $login_log['User Agent'] : '';
+
+		return array('date' => $date, 'ip' => $ip, 'ua' => $ua);
+	}
+
+	private function login_info($args = '') {
+		$user = wp_get_current_user();
+		if (is_wp_error($user))
+			return false;
+		if (empty($args))
+			$args = $this->last_login_info();
+		$date = isset($args['date']) ? $args['date'] : $this->time();
+		$ip = isset($args['ip']) ? $args['ip'] : $this->ip();
+		$ua = isset($args['ua']) ? $args['ua'] : $this->ua();
 
 		list($browser_name, $browser_code, $browser_ver, $os_name, $os_code, $os_ver, $pda_name, $pda_code, $pda_ver) = $this->detect_browser($ua);
 		list($country_name, $country_code) = $this->detect_country($ip);
@@ -239,18 +268,58 @@ CREATE TABLE `{$this->ull_table}` (
 	}
 
 	public function ajax_info(){
-		$content = $this->login_info();
+		if (!is_user_logged_in())
+			return;
+
+		$args = $this->last_login_info();
+		$content = $this->login_info($args);
 		if ($content === false)
 			wp_die('Not logged in.');
 
+		$transient_key = 'ull-dismiss-'.md5($this->ip().(isset($args['ip']) ? $args['ip'] : ''));
+		$dismiss = get_transient($transient_key);
+
 	    header('Content-Type: application/json; charset='.get_option('blog_charset'));
-	    echo json_encode(array('content' => $content));
+	    echo json_encode(array(
+			'content'       => $content,
+			'login_IP'      => isset($args['ip']) ? $args['ip'] : '',
+			'login_country' => isset($args['ip']) ? $this->get_country_flag($args['ip']) : '',
+			'login_time'    => isset($args['date']) ? $this->nice_time($args['date']) : '',
+			'IP'            => $this->ip(),
+			'country'       => $this->get_country_flag($this->ip()),
+			'dismiss'       => $dismiss,
+			));
 	    die();
+	}
+
+	public function ajax_dismiss(){
+		if (!is_user_logged_in())
+			return;
+
+		$args = $this->last_login_info();
+		$transient_key = 'ull-dismiss-'.md5($this->ip().(isset($args['ip']) ? $args['ip'] : ''));
+		set_transient($transient_key, TRUE, 60 * 60);
+		die();
 	}
 
 	public function footer_js(){
 		if (!is_user_logged_in())
 			return;
+
+		$args = $this->last_login_info();
+		$transient_key = 'ull-dismiss-'.md5($this->ip().(isset($args['ip']) ? $args['ip'] : ''));
+		$dismiss = get_transient($transient_key);
+		$caution = sprintf(
+			"<h3>%s</h3><p>%s (' + res.login_time + ')</p>".
+			"<p>".
+			"%s' + res.login_country + '<strong>' + res.login_IP + '</strong><br/>".
+			"%s' + res.country + '<strong>' + res.IP + '</strong>".
+			"</p>",
+			__('Caution!', self::TEXT_DOMAIN),
+			__('Someone has logged in from another IP.', self::TEXT_DOMAIN),
+			__("The someone's IP address :", self::TEXT_DOMAIN),
+			__('Your current IP address :', self::TEXT_DOMAIN)
+			);
 ?>
 <script type="text/javascript">
 function get_ull_info() {
@@ -259,17 +328,29 @@ function get_ull_info() {
 		cache: false,
 		dataType: 'json',
 		type: 'POST',
-		success: function(response){
-			<?php if (self::DEBUG_MODE) echo "console.log(response);\n" ?>
-			jQuery('#wp-admin-bar-user-login-logging a').html(response.content);
-			setTimeout('get_ull_info()', 60000);
+		success: function(res){
+<?php if (self::DEBUG_MODE) echo "\t\t\tconsole.log(res);\n" ?>
+			if (!res.dismiss && res.IP !== res.login_IP) {
+				jQuery('#wp-admin-bar-my-account').pointer({
+					content: '<?php echo $caution; ?>',
+					close: function(){
+						jQuery.post('<?php echo admin_url('admin-ajax.php'); ?>', {
+							action: 'dismiss-ull-wp-pointer',
+						});
+						setTimeout('get_ull_info()', 30000);
+					}
+				}).pointer('open');
+			} else {
+				setTimeout('get_ull_info()', 30000);
+			}
+			jQuery('#wp-admin-bar-user-login-log a').html(res.content);
 		},
 		error: function(){
 			setTimeout('get_ull_info()', 10000);
 		}
 	});
 }
-jQuery(function(){setTimeout('get_ull_info()', 60000);});
+jQuery(function(){setTimeout('get_ull_info()', 10000);});
 </script>
 <?php
 	}
@@ -280,7 +361,6 @@ jQuery(function(){setTimeout('get_ull_info()', 60000);});
 		$page_title = __('Login Log', self::TEXT_DOMAIN);
 		$menu_title = $page_title;
 		$file = plugin_basename(__FILE__);
-		$this->admin_action = admin_url($parent) . '?page=' . plugin_basename(__FILE__);
 		$this->add_submenu_page(
 			$parent,
 			$page_title,
@@ -295,13 +375,13 @@ jQuery(function(){setTimeout('get_ull_info()', 60000);});
 			$menu_title = $page_title;
 		if ($file == '')
 			$file = $this->plugin_file;
-		$this->admin_hook[$parent] = add_submenu_page($parent, $page_title, $menu_title, $capability, $file, $function);
+		add_submenu_page($parent, $page_title, $menu_title, $capability, $file, $function);
 	}
 
 	private function ip(){
 		$ip = isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : '127.0.0.1';
 		if ( isset($_SERVER['HTTP_X_FORWARDED_FOR']) ) {
-			$x_forwarded_for = explode(",", $_SERVER['HTTP_X_FORWARDED_FOR']);
+			$x_forwarded_for = explode(',', $_SERVER['HTTP_X_FORWARDED_FOR']);
 			$ip = trim($x_forwarded_for[0]);
 		}
 		return preg_replace('/[^0-9a-fA-F:., ]/', '', $ip);
@@ -361,39 +441,39 @@ jQuery(function(){setTimeout('get_ull_info()', 60000);});
 
 		$tt = $dest - $sour;
 
-		$year = intval($tt / self::SECYEAR);
+		$year = intval($tt / self::SEC_YEAR);
 		if ($year < -1) {
 			$nicetime .= (!empty($nicetime) ? ' ' : '' ) . sprintf(__('%d years', self::TEXT_DOMAIN), abs($year));
 		} else if ($year == -1) {
 			$nicetime .= (!empty($nicetime) ? ' ' : '' ) . __('one year', self::TEXT_DOMAIN);
 		}
 
-		$month = intval($tt / self::SECMONTH);
+		$month = intval($tt / self::SEC_MONTH);
 		if ($month < -1) {
 			$nicetime .= (!empty($nicetime) ? ' ' : '' ) . sprintf(__('%d months', self::TEXT_DOMAIN), abs($month));
-			$tt = ($dest + abs($year) * self::SECMONTH) - $sour;
+			$tt = ($dest + abs($year) * self::SEC_MONTH) - $sour;
 		} else if ($month == -1) {
 			$nicetime .= (!empty($nicetime) ? ' ' : '' ) . __('one month', self::TEXT_DOMAIN);
-			$tt = ($dest + self::SECMONTH) - $sour;
+			$tt = ($dest + self::SEC_MONTH) - $sour;
 		}
 
-		$day = intval($tt / self::SECDAY);
+		$day = intval($tt / self::SEC_DAY);
 		if ($day < -1) {
 			$nicetime .= (!empty($nicetime) ? ' ' : '' ) . sprintf(__('%d days', self::TEXT_DOMAIN), abs($day));
 		} else if ($day == -1) {
 			$nicetime .= (!empty($nicetime) ? ' ' : '' ) . __('one day', self::TEXT_DOMAIN);
 		}
 
-		$hour = intval($tt / self::SECHOUR);
+		$hour = intval($tt / self::SEC_HOUR);
 		if ($hour  < -1) {
 			$nicetime .= (!empty($nicetime) ? ' ' : '' ) . sprintf(__('%d hours', self::TEXT_DOMAIN), abs($hour));
-			$tt = ($dest + abs($year) * self::SECHOUR) - $sour;
+			$tt = ($dest + abs($hour) * self::SEC_HOUR) - $sour;
 		} else if ($hour == -1) {
 			$nicetime .= (!empty($nicetime) ? ' ' : '' ) . __('one hour', self::TEXT_DOMAIN);
-			$tt = ($dest + self::SECHOUR) - $sour;
+			$tt = ($dest + self::SEC_HOUR) - $sour;
 		}
 
-		$minute = intval($tt / self::SECMINUITE);
+		$minute = intval($tt / self::SEC_MINUITE);
 		if ($minute < -1) {
 			$nicetime .= (!empty($nicetime) ? ' ' : '' ) . sprintf(__('%d minutes', self::TEXT_DOMAIN), abs($minute));
 		} else if ($minute == -1) {
@@ -515,7 +595,7 @@ jQuery(function(){setTimeout('get_ull_info()', 60000);});
 </form>
 </div>
 <?php } ?>
-<div class="alignright actions">
+<div class="alignright tablenav-pages">
 <?php echo $page_links_text; ?>
 </div>
 <br class="clear" />
@@ -582,7 +662,7 @@ $errors =
 </table>
 
 <div class="tablenav">
-<div class="alignright actions">
+<div class="alignright tablenav-pages">
 <?php echo $page_links_text; ?>
 </div>
 <br class="clear" />
