@@ -43,7 +43,7 @@ class Jetpack_Subscriptions {
 	 * Singleton
 	 * @static
 	 */
-	function init() {
+	public static function init() {
 		static $instance = false;
 
 		if ( !$instance ) {
