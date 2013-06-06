@@ -12,6 +12,9 @@ class static_press_admin {
 	const ACCESS_LEVEL = 'manage_options';
 
 	private $plugin_basename;
+	private $plugin_name;
+	private $plugin_version;
+
 	private $static_url;
 	private $static_dir;
 	private $basic_auth;
@@ -23,6 +26,13 @@ class static_press_admin {
 		$this->basic_auth = get_option(self::OPTION_STATIC_BASIC, false);
 		$this->plugin_basename = $plugin_basename;
 		$this->admin_action = admin_url('/admin.php') . '?page=' . self::OPTION_PAGE . '-options';
+
+	    $data = get_file_data(
+	    	dirname(dirname(__FILE__)).'/plugin.php',
+	    	array('pluginname' => 'Plugin Name', 'version' => 'Version')
+	    	);
+		$this->plugin_name    = isset($data['pluginname']) ? $data['pluginname'] : 'StaticPress';
+		$this->plugin_version = isset($data['version']) ? $data['version'] : '';
 
 		add_action('admin_menu', array(&$this, 'admin_menu'));
 		add_filter('plugin_action_links', array(&$this, 'plugin_setting_links'), 10, 2 );
@@ -59,19 +69,19 @@ class static_press_admin {
 	//**************************************************************************************
 	public function admin_menu() {
 		$hook = add_menu_page(
-			__('StaticPress', self::TEXT_DOMAIN) ,
-			__('StaticPress', self::TEXT_DOMAIN) ,
+			__($this->plugin_name, self::TEXT_DOMAIN) ,
+			__($this->plugin_name, self::TEXT_DOMAIN) ,
 			self::ACCESS_LEVEL,
 			self::OPTION_PAGE ,
-			array($this, 'static_static_page') ,
+			array($this, 'static_press_page') ,
 			plugins_url('images/staticpress.png')
 			);
 		add_action('admin_print_scripts-'.$hook, array($this, 'add_admin_scripts'));
 
 		$hook = add_submenu_page(
 			self::OPTION_PAGE ,
-			__('StaticPress Options', self::TEXT_DOMAIN) ,
-			__('StaticPress Options', self::TEXT_DOMAIN) ,
+			__($this->plugin_name.' Options', self::TEXT_DOMAIN) ,
+			__($this->plugin_name.' Options', self::TEXT_DOMAIN) ,
 			self::ACCESS_LEVEL,
 			self::OPTION_PAGE . '-options' ,
 			array($this, 'options_page'),
@@ -105,7 +115,7 @@ class static_press_admin {
 		$nonce_action  = 'update_options';
 		$nonce_name    = '_wpnonce_update_options';
 
-		$title = __('StaticPress Options', self::TEXT_DOMAIN);
+		$title = __($this->plugin_name.' Options', self::TEXT_DOMAIN);
 
 		$iv = new InputValidator('POST');
 		$iv->set_rules($nonce_name, 'required');
@@ -167,7 +177,7 @@ class static_press_admin {
 		echo "<tr>\n{$label}{$input_field}</tr>\n";
 	}
 
-	public function static_static_page(){
+	public function static_press_page(){
 		$title = __('Rebuild', self::TEXT_DOMAIN);
 ?>
 		<div class="wrap" style="margin=top:2em;" id="<?php echo self::OPTION_PAGE; ?>">
@@ -190,43 +200,43 @@ jQuery(function($){
 	var file_count = 0;
 	var loader = $('<div id="loader" style="line-height: 115px; text-align: center;"><img alt="activity indicator" src="<?php echo plugins_url( 'images/ajax-loader.gif' , dirname(__FILE__) ); ?>"></div>');
 
-	function static_static_init(){
+	function static_press_init(){
 		file_count = 0;
 		$('#rebuild').hide();
 		$('#rebuild-result')
-			.html('<p><strong><?php echo __('Initialyze...',   self::TEXT_DOMAIN);?></strong></p>')
+			.html('<p><strong><?php echo __('Initialyze...', self::TEXT_DOMAIN);?></strong></p>')
 			.after(loader);
 		$.ajax('<?php echo $admin_ajax; ?>',{
-			data: {action: 'static_static_init'},
+			data: {action: 'static_press_init'},
 			cache: false,
 			dataType: 'json',
 			type: 'POST',
 			success: function(response){
 				<?php if (self::DEBUG_MODE) echo "console.log(response);\n" ?>
 				if (response.result) {
-					$('#rebuild-result').append('<p><strong><?php echo __('URLS',   self::TEXT_DOMAIN);?></strong></p>')
+					$('#rebuild-result').append('<p><strong><?php echo __('URLS', self::TEXT_DOMAIN);?></strong></p>')
 					var ul = $('<ul></ul>');
 					$.each(response.urls_count, function(){
 						ul.append('<li>' + this.type + ' (' + this.count + ')</li>');
 					});
 					$('#rebuild-result').append('<p></p>').append(ul);
 				}
-				$('#rebuild-result').append('<p><strong><?php echo __('Fetch Start...',   self::TEXT_DOMAIN);?></strong></p>');				
-				static_static_fetch();
+				$('#rebuild-result').append('<p><strong><?php echo __('Fetch Start...', self::TEXT_DOMAIN);?></strong></p>');				
+				static_press_fetch();
 			},
 			error: function(){
 				$('#rebuild').show();
 				$('#loader').remove();
-				$('#rebuild-result').append('<p id="message"><strong><?php echo __('Error!',   self::TEXT_DOMAIN);?></strong></p>');
+				$('#rebuild-result').append('<p id="message"><strong><?php echo __('Error!', self::TEXT_DOMAIN);?></strong></p>');
 				$('html,body').animate({scrollTop: $('#message').offset().top},'slow');
 				file_count = 0;
 			}
 		});
 	}
 
-	function static_static_fetch(){
+	function static_press_fetch(){
 		$.ajax('<?php echo $admin_ajax; ?>',{
-			data: {action: 'static_static_fetch'},
+			data: {action: 'static_press_fetch'},
 			cache: false,
 			dataType: 'json',
 			type: 'POST',
@@ -244,26 +254,26 @@ jQuery(function($){
 					});
 					$('html,body').animate({scrollTop: $('li:last-child', ul).offset().top},'slow');
 					if (response.final)
-						static_static_finalyze();
+						static_press_finalyze();
 					else
-						static_static_fetch();
+						static_press_fetch();
 				} else {
-					static_static_finalyze();
+					static_press_finalyze();
 				}
 			},
 			error: function(){
 				$('#rebuild').show();
 				$('#loader').remove();
-				$('#rebuild-result').append('<p id="message"><strong><?php echo __('Error!',   self::TEXT_DOMAIN);?></strong></p>');
+				$('#rebuild-result').append('<p id="message"><strong><?php echo __('Error!', self::TEXT_DOMAIN);?></strong></p>');
 				$('html,body').animate({scrollTop: $('#message').offset().top},'slow');
 				file_count = 0;
 			}
 		});
 	}
 
-	function static_static_finalyze(){
+	function static_press_finalyze(){
 		$.ajax('<?php echo $admin_ajax; ?>',{
-			data: {action: 'static_static_finalyze'},
+			data: {action: 'static_press_finalyze'},
 			cache: false,
 			dataType: 'json',
 			type: 'POST',
@@ -285,7 +295,7 @@ jQuery(function($){
 		});
 	}
 
-	$('#rebuild').click(static_static_init);
+	$('#rebuild').click(static_press_init);
 });
 </script>
 <?php

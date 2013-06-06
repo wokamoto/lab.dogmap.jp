@@ -24,7 +24,15 @@ If you have translated into your language, please let me know.
 1. Upload the entire `staticpress` folder to the `/wp-content/plugins/` directory.
 2. Activate the plugin through the 'Plugins' menu in WordPress.
 
+== Frequently Asked Questions ==
+
+none
+
+== Screenshots ==
+
+1. The admin page
+
 == Changelog == 
 
-**0.4.0 - May 20, 2013**  
+**0.3.3 - May 14, 2013**  
 Initial release.

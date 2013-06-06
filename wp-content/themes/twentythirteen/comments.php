@@ -30,7 +30,14 @@ if ( post_password_required() )
 		</h2>
 
 		<ol class="comment-list">
-			<?php wp_list_comments( array( 'callback' => 'twentythirteen_comment', 'style' => 'ol' ) ); ?>
+			<?php
+				wp_list_comments( array(
+					'style'       => 'ol',
+					'format'      => 'html5',
+					'short_ping'  => true,
+					'avatar_size' => 74,
+				) );
+			?>
 		</ol><!-- .comment-list -->
 
 		<?php
@@ -38,10 +45,10 @@ if ( post_password_required() )
 			if ( get_comment_pages_count() > 1 && get_option( 'page_comments' ) ) :
 		?>
 		<nav class="navigation comment-navigation" role="navigation">
-			<h1 class="assistive-text section-heading"><?php _e( 'Comment navigation', 'twentythirteen' ); ?></h1>
+			<h1 class="screen-reader-text section-heading"><?php _e( 'Comment navigation', 'twentythirteen' ); ?></h1>
 			<div class="nav-previous"><?php previous_comments_link( __( '&larr; Older Comments', 'twentythirteen' ) ); ?></div>
 			<div class="nav-next"><?php next_comments_link( __( 'Newer Comments &rarr;', 'twentythirteen' ) ); ?></div>
-		</nav>
+		</nav><!-- .comment-navigation -->
 		<?php endif; // Check for comment navigation ?>
 
 		<?php if ( ! comments_open() && get_comments_number() ) : ?>
@@ -50,6 +57,6 @@ if ( post_password_required() )
 
 	<?php endif; // have_comments() ?>
 
-	<?php comment_form(); ?>
+	<?php comment_form( array( 'format' => 'html5' ) ); ?>
 
 </div><!-- #comments -->

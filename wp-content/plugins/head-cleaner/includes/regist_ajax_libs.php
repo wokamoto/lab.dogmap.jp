@@ -24,11 +24,15 @@ License:
 */
 global $wp_version;
 
-if (!defined('AJAX_LIBS_GOOGLE')) define('AJAX_LIBS_GOOGLE', true);
-if (!defined('AJAX_LIBS_YUI'))    define('AJAX_LIBS_YUI', true);
+if (!defined('AJAX_LIBS_GOOGLE'))
+	define('AJAX_LIBS_GOOGLE', true);
+if (!defined('AJAX_LIBS_YUI'))
+	define('AJAX_LIBS_YUI', true);
 
-$jquery_ver = '1.7.2';
-if (version_compare($wp_version, "3.4.1", ">="))
+$jquery_ver = '1.8.3';
+if (version_compare($wp_version, "3.5", ">="))
+	$jquery_ver = '1.8.3';
+elseif (version_compare($wp_version, "3.4.1", ">="))
 	$jquery_ver = '1.7.2';
 elseif (version_compare($wp_version, "3.3", ">="))
 	$jquery_ver = '1.7.1';
@@ -127,7 +131,28 @@ function enqueue_ajax_lib_stylesheets() {
 	if ( !is_a($wp_scripts, 'WP_Scripts') )
 		return;
 
-	$stylesheets = array('yui', 'yui-reset', 'yui-base', 'yui-fonts', 'yui-grids', 'yui-container', 'yui-menu', 'yui-autocomplete', 'yui-button', 'yui-calendar', 'yui-colorpicker', 'yui-datatable', 'yui-editor', 'yui-imagecropper', 'yui-layout', 'yui-resize', 'yui-tabview', 'yui-treeview', 'yui-logger', 'yui-profilerviewer');
+	$stylesheets = array(
+		'yui',
+		'yui-reset',
+		'yui-base',
+		'yui-fonts',
+		'yui-grids',
+		'yui-container',
+		'yui-menu',
+		'yui-autocomplete',
+		'yui-button',
+		'yui-calendar',
+		'yui-colorpicker',
+		'yui-datatable',
+		'yui-editor',
+		'yui-imagecropper',
+		'yui-layout',
+		'yui-resize',
+		'yui-tabview',
+		'yui-treeview',
+		'yui-logger',
+		'yui-profilerviewer',
+		);
 	foreach ( $stylesheets as $value ) {
 		if ( array_search( $value, $wp_scripts->queue ) != false )
 			wp_enqueue_style($value);

@@ -80,12 +80,12 @@ function twentythirteen_header_style() {
 
 	// If we get this far, we have custom styles.
 	?>
-	<style type="text/css">
+	<style type="text/css" id="twentythirteen-header-css">
 	<?php
 		if ( ! empty( $header_image ) ) :
 	?>
 		.site-header {
-			background: url("<?php header_image(); ?>") no-repeat scroll top;
+			background: url(<?php header_image(); ?>) no-repeat scroll top;
 			background-size: 1600px auto;
 		}
 	<?php
@@ -96,14 +96,14 @@ function twentythirteen_header_style() {
 	?>
 		.site-title,
 		.site-description {
-			position: absolute !important;
+			position: absolute;
 			clip: rect(1px 1px 1px 1px); /* IE7 */
 			clip: rect(1px, 1px, 1px, 1px);
 		}
 	<?php
 			if ( empty( $header_image ) ) :
 	?>
-		.site-header hgroup {
+		.site-header .home-link {
 			min-height: 0;
 		}
 	<?php
@@ -112,9 +112,9 @@ function twentythirteen_header_style() {
 		// If the user has set a custom color for the text, use that.
 		elseif ( $text_color != get_theme_support( 'custom-header', 'default-text-color' ) ) :
 	?>
-		.site-title a,
+		.site-title,
 		.site-description {
-			color: #<?php echo esc_attr( $text_color ); ?> !important;
+			color: #<?php echo esc_attr( $text_color ); ?>;
 		}
 	<?php endif; ?>
 	</style>
@@ -129,7 +129,7 @@ function twentythirteen_header_style() {
 function twentythirteen_admin_header_style() {
 	$header_image = get_header_image();
 ?>
-	<style type="text/css">
+	<style type="text/css" id="twentythirteen-admin-header-css">
 	.appearance_page_custom-header #headimg {
 		border: none;
 		-webkit-box-sizing: border-box;
@@ -137,11 +137,11 @@ function twentythirteen_admin_header_style() {
 		box-sizing:         border-box;
 		<?php
 		if ( ! empty( $header_image ) ) {
-			echo 'background: url("' . esc_url( $header_image ) . '") no-repeat scroll top; background-size: 1600px auto;';
+			echo 'background: url(' . esc_url( $header_image ) . ') no-repeat scroll top; background-size: 1600px auto;';
 		} ?>
 		padding: 0 20px;
 	}
-	#headimg .hgroup {
+	#headimg .home-link {
 		-webkit-box-sizing: border-box;
 		-moz-box-sizing:    border-box;
 		box-sizing:         border-box;
@@ -162,7 +162,7 @@ function twentythirteen_admin_header_style() {
 	}
 	<?php endif; ?>
 	#headimg h1 {
-		font: bold 60px/1 'Bitter', Georgia, serif;
+		font: bold 60px/1 Bitter, Georgia, serif;
 		margin: 0;
 		padding: 58px 0 10px;
 	}
@@ -173,7 +173,7 @@ function twentythirteen_admin_header_style() {
 		text-decoration: underline;
 	}
 	#headimg h2 {
-		font: 200 italic 24px 'Source Sans Pro', Helvetica, sans-serif;
+		font: 200 italic 24px "Source Sans Pro", Helvetica, sans-serif;
 		margin: 0;
 		text-shadow: none;
 	}
@@ -193,11 +193,11 @@ function twentythirteen_admin_header_style() {
  */
 function twentythirteen_admin_header_image() {
 	?>
-	<div id="headimg" style="background: url('<?php esc_url( header_image() ); ?>') no-repeat scroll top; background-size: 1600px auto;">
+	<div id="headimg" style="background: url(<?php header_image(); ?>) no-repeat scroll top; background-size: 1600px auto;">
 		<?php $style = ' style="color:#' . get_header_textcolor() . ';"'; ?>
-		<div class="hgroup">
-			<h1><a id="name"<?php echo $style; ?> onclick="return false;" href="#"><?php bloginfo( 'name' ); ?></a></h1>
-			<h2 id="desc"<?php echo $style; ?>><?php bloginfo( 'description' ); ?></h2>
+		<div class="home-link">
+			<h1 class="displaying-header-text"><a id="name"<?php echo $style; ?> onclick="return false;" href="#"><?php bloginfo( 'name' ); ?></a></h1>
+			<h2 id="desc" class="displaying-header-text"<?php echo $style; ?>><?php bloginfo( 'description' ); ?></h2>
 		</div>
 	</div>
 <?php }
