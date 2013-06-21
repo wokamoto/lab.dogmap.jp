@@ -5,7 +5,7 @@
 Plugin Name:  Developer
 Plugin URI:   http://wordpress.org/extend/plugins/developer/
 Description:  The first stop for every WordPress developer
-Version:      1.2
+Version:      1.2.1
 Author:       Automattic
 Author URI:   http://automattic.com
 License:      GPLv2 or later
@@ -76,6 +76,11 @@ class Automattic_Developer {
 				'name'         => esc_html__( 'Debug Bar', 'a8c-developer' ),
 				'active'       => class_exists( 'Debug_Bar' ),
 			),
+			'debug-bar-console' => array(
+				'project_type' => 'all',
+				'name'         => esc_html__( 'Debug Bar Console', 'a8c-developer' ),
+				'active'       => function_exists( 'debug_bar_console_panel' ),
+			),
 			'debug-bar-cron' => array(
 				'project_type' => 'all',
 				'name'         => esc_html__( 'Debug Bar Cron', 'a8c-developer' ),
@@ -141,6 +146,11 @@ class Automattic_Developer {
 				'name'         => esc_html__( 'Beta Tester', 'a8c-developer' ),
 				'active'       => class_exists( 'wp_beta_tester' ),
 				'filename'     => 'wp-beta-tester.php',
+			),
+			'mp6' => array(
+				'project_type' => 'wpcom-vip',
+				'name' 		   => esc_html__( 'MP6', 'a8c-developer' ),
+				'active'       => function_exists( 'mp6_replace_wp_default_styles' ),
 			),
 
 			// Theme Developer
@@ -393,8 +403,15 @@ class Automattic_Developer {
 
 				$install_result = $upgrader->install( $api->download_link );
 
-				if ( ! $install_result || is_wp_error( $install_result ) )
-					die( sprintf( __( 'ERROR: Failed to install plugin: %s', 'a8c-developer' ), $install_result->get_error_message() ) );
+				if ( ! $install_result || is_wp_error( $install_result ) ) {
+					// $install_result can be false if the file system isn't writeable.
+					$error_message = __( 'Please ensure the file system is writeable', 'a8c-developer' );
+
+					if ( is_wp_error( $install_result ) )
+						$error_message = $install_result->get_error_message();
+
+					die( sprintf( __( 'ERROR: Failed to install plugin: %s', 'a8c-developer' ), $error_message ) );
+				}
 
 				$activate_result = activate_plugin( $this->get_path_for_recommended_plugin( $_POST['plugin_slug'] ) );
 
