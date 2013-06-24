@@ -943,6 +943,7 @@ th.sorted a span {
 	float: right;
 }
 
+p.submit,
 .submitbox .submit {
 	text-align: right;
 }

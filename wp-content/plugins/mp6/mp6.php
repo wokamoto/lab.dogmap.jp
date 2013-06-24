@@ -3,15 +3,17 @@
 Plugin Name: MP6
 Plugin URI: http://wordpress.org/extend/plugins/mp6/
 Description: This is a plugin to break the wp-admin UI, and is not recommended for non-savvy users.
-Version: 1.6
+Version: 1.7
 Author:
 Author URI: http://wordpress.org
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 */
 
-// Load the responsive component of MP6
-require_once( plugin_dir_path(__FILE__) . 'components/responsive/moby6.php' );
+
+// load the responsive component of MP6
+if ( ! defined( 'IFRAME_REQUEST' ) || IFRAME_REQUEST !== true )
+	require_once( plugin_dir_path(__FILE__) . 'components/responsive/moby6.php' );
 
 // load the sticky admin menu component
 require_once( plugin_dir_path(__FILE__) . 'components/sticky-menu/sticky-menu.php' );

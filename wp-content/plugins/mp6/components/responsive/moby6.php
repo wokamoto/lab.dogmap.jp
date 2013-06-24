@@ -35,7 +35,3 @@ function moby6_add_js() {
 	wp_enqueue_script( 'moby6', plugins_url( 'js/moby6.js', __FILE__ ), array( 'jquery', 'backbone' ), $modtime );
 	wp_enqueue_script( 'moby6-jq-mobile', plugins_url( 'js/jquery.mobile.custom.min.js', __FILE__ ), array( 'jquery', 'backbone' ), '1.3.1' );
 }
-
-function moby6_enlarge_pressthis( $link ) {
-	return str_replace( 'width=720,height=570', 'width=770,height=570', $link );
-}

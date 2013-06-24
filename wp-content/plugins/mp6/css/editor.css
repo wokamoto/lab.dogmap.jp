@@ -175,15 +175,11 @@ a .mceIcon, .mceAction {
 	font-family:dashicons !important;
 	-webkit-font-smoothing:antialiased;
 	text-align:center;
-	font:20px/12px dashicons;
+	font:20px/1 dashicons;
 }
 
 .mceAction {
 	line-height:16px;
-}
-
-a .mceIcon:before {
-	vertical-align: middle;
 }
 
 /* Button */
@@ -631,7 +627,8 @@ span.mce_strikethrough:before {
 
 span.mce_spellchecker {
 	font-size:20px;
-	background:none !important
+	background:none !important;
+	margin-top: 2px;
 }
 span.mce_spellchecker:before {
 	content:'\f210';
@@ -684,6 +681,10 @@ span.mce_redo:before {
 span.mce_wp_help:before {
 	content:'\f223';
 }
+span.mce_image:before {
+	content: '\f104';
+}
+
 
 /* Theme */
 .wp_themeSkin span.mce_undo {background-position:-500px -20px}

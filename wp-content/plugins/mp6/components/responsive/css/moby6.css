@@ -36,9 +36,11 @@ body * {
  * Hidden Elements
  * ----------------------------------------------------------------------------
  */
-#screen-meta, #screen-meta-links, #collapse-menu,
+#screen-meta,
+#screen-meta-links,
+#collapse-menu,
 .post-format-select {
-	display: none;
+	display: none !important;
 }
 
 
@@ -458,8 +460,7 @@ ul#categorychecklist li {
 }
 
 /* Tags Metabox */
-.tagsdiv .newtag,
-.press-this .tagsdiv .newtag {
+.tagsdiv .newtag {
 	width: 100%;
 	padding: 25px 10px;
 	margin-bottom: 15px;
@@ -1232,15 +1233,6 @@ div#widgets-left, div#widgets-right {
 }
 
 /**
- * Press This
- * ----------------------------------------------------------------------------
- */
-
-.press-this #wp-content-media-buttons {
-	top: 10px;
-}
-
-/**
  * Moderate Comment
  * ----------------------------------------------------------------------------
  */
@@ -1275,7 +1267,8 @@ div#widgets-left, div#widgets-right {
  */
 .jetpack_page_akismet-key-config .wrap .narrow,
 .plugins_page_akismet-key-config  .wrap .narrow,
-#akismet-conf {
+#akismet-conf,
+#akismet-connectivity {
 	width: auto !important;
 }
 #comments-form .checkforspam {

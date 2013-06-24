@@ -33,13 +33,6 @@
 			// Trigger custom events based on active media query.
 			this.matchMedia();
 			$( window ).on( 'resize', $.proxy( this.matchMedia, this ) );
-
-			// workaround to resize the PressThis window back to a width of 770
-			// the 'shortcut_link' filter isn't enought, because press-this.php
-			// calls window.resizeTo() on $(document).ready()
-			if ( this.$body.hasClass( 'press-this' ) ) {
-				setTimeout( function() { window.resizeTo( 770, 580 ); }, 100 );
-			}
 		},
 
 		activate: function() {

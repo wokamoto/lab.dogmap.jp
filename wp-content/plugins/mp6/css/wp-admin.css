@@ -1793,8 +1793,6 @@ form.upgrade .hint {
 
 .folded #adminmenu a.wp-has-current-submenu:focus + .wp-submenu,
 .folded #adminmenu .wp-has-current-submenu .wp-submenu {
-	border-width: 1px;
-	border-style: solid;
 	position: absolute;
 	top: -1000em;
 }
@@ -3617,7 +3615,7 @@ ul.category-tabs li,
 }
 
 .category-tabs {
-	margin: 8px 0 3px;
+	margin: 8px 0 5px;
 }
 
 #category-adder h4 {
@@ -7693,6 +7691,20 @@ h3:hover .edit-box {
 }
 
 /* QuickPress */
+#header-logo {
+	display: none;
+}
+
+#site-heading:before {
+	top: 3px;
+	position: relative;
+	display: inline-block;
+	speak: none;
+	font: 18px/1 dashicons;
+	color: #727272;
+	content: '\f120';
+	-webkit-font-smoothing: antialiased;
+}
 .no-js #dashboard_quick_press {
 	display: none;
 }
@@ -10184,4 +10196,30 @@ a.widget-control-edit {
 }
 .locale-lt-lt .inline-edit-row fieldset label span.input-text-wrap {
 	margin-left: 8em;
+}
+
+
+/* Thickbox styles */
+
+.tb-close-icon {
+	background: none;
+	height: 16px;
+	margin: -2px -3px 0 0;
+	width: 16px;
+}
+
+.tb-close-icon:before {
+	content: '\f158';
+	color: #ccc;
+	font: normal 20px/1 'Dashicons';
+	vertical-align: middle;
+	-webkit-font-smoothing: antialiased;
+}
+
+.tb-close-icon:hover:before {
+	color: #fff;
+}
+
+#TB_closeAjaxWindow a {
+	text-decoration: none;
 }
