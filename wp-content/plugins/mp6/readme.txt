@@ -25,4 +25,4 @@ Existence of this plugin will be officially denied, but discussion will happen a
 
 == Changelog ==
 
-http://make.wordpress.org/ui/tag/mp6/
+http://plugins.trac.wordpress.org/log/mp6/

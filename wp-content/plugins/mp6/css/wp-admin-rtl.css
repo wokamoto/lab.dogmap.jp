@@ -965,6 +965,10 @@ p.submit,
 	margin: 0 125px 0 5px;
 }
 
+.category-tabs {
+	margin-bottom: 3px;
+}
+
 #side-sortables .comments-box thead th,
 #normal-sortables .comments-box thead th {
 	font-style: normal;
@@ -1598,9 +1602,34 @@ h2 .nav-tab {
   19.0 - Tools
 ------------------------------------------------------------------------------*/
 
+.press-this .posting {
+	margin-right: 0;
+	margin-left: 252px;
+}
+
+.press-this #publish,
+.press-this-sidebar {
+	float: left;
+}
+
+.press-this #header-logo,
+.press-this #wphead h1 {
+	float: right;
+}
+
+.press-this .wp_themeSkin .mceStatusbar a.mceResize {
+	background: transparent url('../../../../wp-admin/images/resize-rtl.gif') no-repeat scroll right bottom;
+	width: 12px;
+	position: relative;
+	top: -1px;
+}
+
+.pressthis a span:before {
+	padding-left: 8px;
+}
+
 .pressthis a span {
-	background-position: right 5px;
-	padding: 8px 27px 8px 11px;
+	padding: 0px 3px 8px 12px;
 }
 
 .pressthis a:after {
@@ -1612,12 +1641,12 @@ h2 .nav-tab {
 	-moz-transform: skew(-20deg) rotate(-6deg);
 }
 
-
 .pressthis a:hover:after {
 	transform: skew(-20deg) rotate(-9deg);
 	-webkit-transform: skew(-20deg) rotate(-9deg);
 	-moz-transform: skew(-20deg) rotate(-9deg);
 }
+
 
 /*------------------------------------------------------------------------------
   20.0 - Settings
@@ -2764,16 +2793,6 @@ div.sidebar-name h3 {
 	float: left;
 }
 
-/* Press This */
-.press-this-sidebar {
-	float: left;
-}
-
-.press-this #header-logo,
-.press-this #wphead h1 {
-	float: right;
-}
-
 /* RTL */
 .ltr {
 	direction: ltr;
@@ -2852,7 +2871,7 @@ div.sidebar-name h3 {
 		background-size: 18px 100px;
 	}
 
-	#content-resize-handle, #post-body .wp_themeSkin .mceStatusbar a.mceResize {
+	#content-resize-handle, #post-body .wp_themeSkin .mceStatusbar a.mceResize, .press-this .wp_themeSkin .mceStatusbar a.mceResize {
 		background: transparent url('../../../../wp-admin/images/resize-rtl-2x.gif') no-repeat scroll right bottom;
 		background-size: 11px 11px;
 	}
