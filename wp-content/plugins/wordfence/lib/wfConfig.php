@@ -54,6 +54,7 @@ class wfConfig {
 				"neverBlockBG" => "neverBlockVerified",
 				"loginSec_countFailMins" => "5",
 				"loginSec_lockoutMins" => "5",
+				'loginSec_strongPasswds' => '',
 				'loginSec_maxFailures' => "500",
 				'loginSec_maxForgotPasswd' => "500",
 				'maxGlobalRequests' => "DISABLED",
@@ -119,6 +120,7 @@ class wfConfig {
 				"neverBlockBG" => "neverBlockVerified",
 				"loginSec_countFailMins" => "5",
 				"loginSec_lockoutMins" => "5",
+				'loginSec_strongPasswds' => 'pubs',
 				'loginSec_maxFailures' => "50",
 				'loginSec_maxForgotPasswd' => "50",
 				'maxGlobalRequests' => "DISABLED",
@@ -184,6 +186,7 @@ class wfConfig {
 				"neverBlockBG" => "neverBlockVerified",
 				"loginSec_countFailMins" => "240",
 				"loginSec_lockoutMins" => "240",
+				'loginSec_strongPasswds' => 'pubs',
 				'loginSec_maxFailures' => "20",
 				'loginSec_maxForgotPasswd' => "20",
 				'maxGlobalRequests' => "DISABLED",
@@ -249,6 +252,7 @@ class wfConfig {
 				"neverBlockBG" => "neverBlockVerified",
 				"loginSec_countFailMins" => "1440",
 				"loginSec_lockoutMins" => "1440",
+				'loginSec_strongPasswds' => 'all',
 				'loginSec_maxFailures' => "10",
 				'loginSec_maxForgotPasswd' => "10",
 				'maxGlobalRequests' => "960",
@@ -314,6 +318,7 @@ class wfConfig {
 				"neverBlockBG" => "neverBlockVerified",
 				"loginSec_countFailMins" => "1440",
 				"loginSec_lockoutMins" => "1440",
+				'loginSec_strongPasswds' => 'all',
 				'loginSec_maxFailures' => "5",
 				'loginSec_maxForgotPasswd' => "5",
 				'maxGlobalRequests' => "960",
@@ -442,7 +447,8 @@ class wfConfig {
 		$tempFilename = 'wordfence_tmpfile_' . $key . '.php';
 		if((strlen($serialized) * 1.1) > self::getDB()->getMaxAllowedPacketBytes()){ //If it's greater than max_allowed_packet + 10% for escaping and SQL
 			if($canUseDisk){
-				$dir = self::getTempDir();					
+				$dir = self::getTempDir();
+				$potentialDirs = self::getPotentialTempDirs();
 				if($dir){
 					$fh = false;
 					$fullFile = $dir . $tempFilename;
@@ -451,7 +457,7 @@ class wfConfig {
 					if($fh){ 
 						wordfence::status(4, 'info', "Serialized data for $key is " . strlen($serialized) . " bytes and is greater than max_allowed packet so writing it to disk file: " . $fullFile);
 					} else {
-						wordfence::status(1, 'error', "Your database doesn't allow big packets so we have to use files to store temporary data and Wordfence can't find a place to write them. Either ask your admin to increase max_allowed_packet on your MySQL database, or make one of the following directories writable by your web server: " . implode(', ', $dirs));
+						wordfence::status(1, 'error', "Your database doesn't allow big packets so we have to use files to store temporary data and Wordfence can't find a place to write them. Either ask your admin to increase max_allowed_packet on your MySQL database, or make one of the following directories writable by your web server: " . implode(', ', $potentialDirs));
 						return false;
 					}
 					fwrite($fh, self::$tmpFileHeader);
@@ -459,7 +465,7 @@ class wfConfig {
 					fclose($fh);
 					return true;
 				} else {
-					wordfence::status(1, 'error', "Wordfence tried to save a variable with name '$key' and your database max_allowed_packet is set to be too small. We then tried to save it to disk, but you don't have a temporary directory that is writable. You can fix this by making the /wp-content/plugins/wordfence/tmp/ directory writable by your web server. Or by increasing your max_allowed_packet configuration variable in your mysql database.");
+					wordfence::status(1, 'error', "Your database doesn't allow big packets so we have to use files to store temporary data and Wordfence can't find a place to write them. Either ask your admin to increase max_allowed_packet on your MySQL database, or make one of the following directories writable by your web server: " . implode(', ', $potentialDirs));
 					return false;
 				}
 					
@@ -490,7 +496,7 @@ class wfConfig {
 	}
 	private static function getTempDir(){
 		if(! self::$tmpDirCache){
-			$dirs = array(wfUtils::getPluginBaseDir() . 'wordfence/tmp/', sys_get_temp_dir(), ABSPATH . 'wp-content/uploads/');
+			$dirs = self::getPotentialTempDirs();
 			$finalDir = 'notmp';
 			wfUtils::errorsOff();
 			foreach($dirs as $dir){
@@ -512,6 +518,9 @@ class wfConfig {
 		} else {
 			return self::$tmpDirCache;
 		}
+	}
+	private static function getPotentialTempDirs() {
+		return array(wfUtils::getPluginBaseDir() . 'wordfence/tmp/', sys_get_temp_dir(), ABSPATH . 'wp-content/uploads/');
 	}
 	public static function f($key){
 		echo esc_attr(self::get($key));

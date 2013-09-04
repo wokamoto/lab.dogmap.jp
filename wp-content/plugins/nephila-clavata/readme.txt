@@ -3,8 +3,8 @@ Contributors: wokamoto, megumithemes
 Donate link: https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=9S8AJCY7XB8F4&lc=JP&item_name=WordPress%20Plugins&item_number=wp%2dplugins&currency_code=JPY&bn=PP%2dDonationsBF%3abtn_donate_SM%2egif%3aNonHosted
 Tags: admin, amazon, aws, media, mirror, s3, uploads
 Requires at least: 3.5
-Tested up to: 3.5.1
-Stable tag: 0.1.9
+Tested up to: 3.6
+Stable tag: 0.2.1
 
 Allows you to mirror your WordPress media uploads over to Amazon S3 for storage and delivery.
 
@@ -40,14 +40,26 @@ none
 
 == Changelog == 
 
+**0.2.1 - August 30, 2013**
+
+minor bug fix.
+
+**0.2.0 - June 15, 2013**
+
+If there isn't exists original file, download it from the S3.
+
 **0.1.9 - June 7, 2013**
+
 minor bug fix.
 
 **0.1.6 - May 8, 2013**
+
 Added uninstall script.
 
 **0.1.2 - March 8, 2013**  
+
 Some fix.
 
 **0.1.1 - March 7, 2013**  
+
 Initial release.

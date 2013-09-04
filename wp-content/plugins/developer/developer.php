@@ -5,7 +5,7 @@
 Plugin Name:  Developer
 Plugin URI:   http://wordpress.org/extend/plugins/developer/
 Description:  The first stop for every WordPress developer
-Version:      1.2.1
+Version:      1.2.2
 Author:       Automattic
 Author URI:   http://automattic.com
 License:      GPLv2 or later
@@ -14,6 +14,7 @@ Text Domain:  a8c-developer
 Domain Path:  /languages/
 
 **************************************************************************/
+
 // Load helper class if installing a plugin
 if ( ! empty( $_POST['action'] ) && 'a8c_developer_install_plugin' == $_POST['action'] )
 	require_once( dirname( __FILE__ ) . '/includes/class-empty-upgrader-skin.php' );
@@ -24,7 +25,7 @@ class Automattic_Developer {
 	public $settings               = array();
 	public $default_settings       = array();
 
-	const VERSION                  = '1.1.6';
+	const VERSION                  = '1.2.2';
 	const OPTION                   = 'a8c_developer';
 	const PAGE_SLUG                = 'a8c_developer';
 
@@ -44,6 +45,9 @@ class Automattic_Developer {
 		add_action( 'wp_ajax_a8c_developer_lightbox_step_1',	array( $this, 'ajax_handler' ) );
 		add_action( 'wp_ajax_a8c_developer_install_plugin',		array( $this, 'ajax_handler' ) );
 		add_action( 'wp_ajax_a8c_developer_activate_plugin',	array( $this, 'ajax_handler' ) );
+
+		if ( defined ( 'WP_CLI' ) && WP_CLI )
+			require_once( __DIR__ . '/includes/class-wp-cli-commands.php' );
 	}
 
 	// Internationalization
@@ -115,11 +119,6 @@ class Automattic_Developer {
 				'project_type' => 'wpcom-vip',
 				'name'         => esc_html__( 'Jetpack', 'a8c-developer' ),
 				'active'       => class_exists( 'Jetpack' ),
-			),
-			'grunion-contact-form' => array(
-				'project_type' => 'wpcom-vip',
-				'name'         => esc_html__( 'Grunion Contact Form', 'a8c-developer' ),
-				'active'       => defined( 'GRUNION_PLUGIN_DIR' ),
 			),
 			'polldaddy' => array(
 				'project_type' => 'wpcom-vip',
@@ -838,7 +837,7 @@ class Automattic_Developer {
 		return false;
 	}
 
-	private function get_project_types() {
+	public function get_project_types() {
 		return array(
 			'wporg'       => __( 'Plugin for a self-hosted WordPress installation', 'a8c-developer' ),
 			'wporg-theme' => __( 'Theme for a self-hosted WordPress installation', 'a8c-developer' ),

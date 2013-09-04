@@ -91,7 +91,7 @@ class S3_helper {
 		try {
 			if (!$download_path)
 				$download_path = dirname(__FILE__).'/'.basename($key);
-			if (file_exists($download_path))
+			if (is_dir($download_path))
 				return false;
 			$args = array_merge($this->options, array(
 				'Key'         => $key,

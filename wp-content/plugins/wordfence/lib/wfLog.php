@@ -397,7 +397,7 @@ class wfLog {
 			$res['blocked'] = $this->getDB()->querySingle("select blockedTime from " . $this->blocksTable . " where IP=%s and (permanent = 1 OR (blockedTime + %s > unix_timestamp()))", $res['IP'], wfConfig::get('blockedTime'));
 			$res['IP'] = wfUtils::inet_ntoa($res['IP']); 
 			$res['extReferer'] = false;
-			if($res['referer']){
+			if( isset( $res['referer'] ) && $res['referer']){
 				$refURL = parse_url($res['referer']);
 				if(is_array($refURL) && $refURL['host']){
 					$refHost = strtolower(preg_replace('/^www\./i', '', $refURL['host']));
@@ -414,15 +414,17 @@ class wfLog {
 						}
 						if($q){
 							$queryVars = array();
-							parse_str($refURL['query'], $queryVars);
-							if(isset($queryVars[$q])){
-								$res['searchTerms'] = $queryVars[$q];
+							if( isset( $refURL['query'] ) ) {
+								parse_str($refURL['query'], $queryVars);
+								if(isset($queryVars[$q])){
+									$res['searchTerms'] = $queryVars[$q];
+								}
 							}
 						}
 					}
 				}
 				if($res['extReferer']){
-					if ( stristr( $referringPage['host'], 'google.' ) )
+					if ( isset( $referringPage ) && stristr( $referringPage['host'], 'google.' ) )
 					{
 						parse_str( $referringPage['query'], $queryVars );
 						echo $queryVars['q']; // This is the search term used
@@ -660,8 +662,8 @@ class wfLog {
 				$this->blockIP($IP, $reason);
 				$secsToGo = wfConfig::get('blockedTime');
 			} else if($action == 'throttle'){
-				$IP = wfUtils::inet_aton(wfUtils::getIP());
-				$this->getDB()->queryWrite("insert into " . $this->throttleTable . " (IP, startTime, endTime, timesThrottled, lastReason) values (%s, unix_timestamp(), unix_timestamp(), 1, '%s') ON DUPLICATE KEY UPDATE endTime=unix_timestamp(), timesThrottled = timesThrottled + 1, lastReason='%s'", $IP, $reason, $reason);
+				$IP = wfUtils::getIP();
+				$this->getDB()->queryWrite("insert into " . $this->throttleTable . " (IP, startTime, endTime, timesThrottled, lastReason) values (%s, unix_timestamp(), unix_timestamp(), 1, '%s') ON DUPLICATE KEY UPDATE endTime=unix_timestamp(), timesThrottled = timesThrottled + 1, lastReason='%s'", wfUtils::inet_aton($IP), $reason, $reason);
 				wordfence::status(2, 'info', "Throttling IP $IP. $reason");
 				$secsToGo = 60;
 			}

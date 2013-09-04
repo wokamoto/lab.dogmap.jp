@@ -83,8 +83,17 @@ window['wordfenceAdmin'] = {
 			startTicker = true;
 			if(! this.tourClosed){
 				var self = this;
-				this.tour('wfWelcomeContent4', 'wfHeading', 'top', 'left', "Learn how to Block Countries", function(){ self.tourRedir('WordfenceCountryBlocking'); });
+				this.tour('wfWelcomeContent4', 'wfHeading', 'top', 'left', "Learn about Cellphone Sign-in", function(){ self.tourRedir('WordfenceTwoFactor'); });
 			}
+		} else if(jQuery('#wordfenceMode_twoFactor').length > 0){
+			this.mode = 'twoFactor';
+			startTicker = false;
+			if(! this.tourClosed){
+				var self = this;
+				this.tour('wfWelcomeTwoFactor', 'wfHeading', 'top', 'left', "Learn how to Block Countries", function(){ self.tourRedir('WordfenceCountryBlocking'); });
+			}
+			this.loadTwoFactor();
+
 		} else if(jQuery('#wordfenceMode_countryBlocking').length > 0){
 			this.mode = 'countryBlocking';
 			startTicker = false;
@@ -143,6 +152,13 @@ window['wordfenceAdmin'] = {
 	},
 	tourFinish: function(){
 		this.ajax('wordfence_tourClosed', {}, function(res){});
+	},
+	downgradeLicense: function(){
+		this.colorbox('400px', "Confirm Downgrade", "Are you sure you want to downgrade your Wordfence Premium License? This will disable all Premium features and return you to the free version of Wordfence. <a href=\"https://www.wordfence.com/manage-wordfence-api-keys/\" target=\"_blank\">Click here to renew your paid membership</a> or click the button below to confirm you want to downgrade.<br /><br /><input type=\"button\" value=\"Downgrade and disable Premium features\" onclick=\"WFAD.downgradeLicenseConfirm();\" /><br />");
+	},
+	downgradeLicenseConfirm: function(){
+		jQuery.colorbox.close();
+		this.ajax('wordfence_downgradeLicense', {}, function(res){ location.reload(true); });
 	},
 	tour: function(contentID, elemID, edge, align, buttonLabel, buttonCallback){
 		var self = this;
@@ -1054,10 +1070,10 @@ window['wordfenceAdmin'] = {
 			jQuery('.wfAjax24').hide();
 			if(res.ok){
 				if(res['paidKeyMsg']){
-					self.colorbox('400px', "Congratulations! You have been upgraded to Premium Scanning.", "You have upgraded to a Premium API key. Once this page reloads, you can choose which premium scanning options you would like to enable and then click save. Click the button below to reload this page now.<br /><br /><center><input type='button' name='wfReload' value='Reload page and enable Premium options' onclick='window.location.reload();' /></center>");
+					self.colorbox('400px', "Congratulations! You have been upgraded to Premium Scanning.", "You have upgraded to a Premium API key. Once this page reloads, you can choose which premium scanning options you would like to enable and then click save. Click the button below to reload this page now.<br /><br /><center><input type='button' name='wfReload' value='Reload page and enable Premium options' onclick='window.location.reload(true);' /></center>");
 					return;
 				} else if(res['reload'] == 'reload' || WFAD.reloadConfigPage){
-					self.colorbox('400px', "Please reload this page", "You selected a config option that requires a page reload. Click the button below to reload this page to update the menu.<br /><br /><center><input type='button' name='wfReload' value='Reload page' onclick='window.location.reload();' /></center>");
+					self.colorbox('400px', "Please reload this page", "You selected a config option that requires a page reload. Click the button below to reload this page to update the menu.<br /><br /><center><input type='button' name='wfReload' value='Reload page' onclick='window.location.reload(true);' /></center>");
 					return;
 				} else {
 					self.pulse('.wfSavedMsg');
@@ -1266,6 +1282,58 @@ window['wordfenceAdmin'] = {
 				jQuery('.wfAjax24').hide();
 				self.pulse('.wfSaveMsg');
 				});
+	},
+	twoFacStatus: function(msg){
+		jQuery('#wfTwoFacMsg').html(msg);
+		jQuery('#wfTwoFacMsg').fadeIn(function(){
+			setTimeout(function(){ jQuery('#wfTwoFacMsg').fadeOut(); }, 2000);
+			});
+	},
+	addTwoFactor: function(username, phone){
+		var self = this;
+		this.ajax('wordfence_addTwoFactor', {
+			username: username,
+			phone: phone
+			}, function(res){
+				if(res.ok){
+					self.twoFacStatus('User added! Check the user\'s phone to get the activation code.');
+					jQuery('<div id="twoFacCont_' + res.userID + '">' + jQuery('#wfTwoFacUserTmpl').tmpl(res).html() + '</div>').prependTo(jQuery('#wfTwoFacUsers'));
+				}
+			});
+	},
+	twoFacActivate: function(userID, code){
+		var self = this;
+		this.ajax('wordfence_twoFacActivate', {
+			userID: userID,
+			code: code
+			}, function(res){
+				if(res.ok){
+					jQuery('#twoFacCont_' + res.userID).html(
+						jQuery('#wfTwoFacUserTmpl').tmpl(res)
+						);
+					self.twoFacStatus('Cellphone Sign-in activated for user.');
+				}
+			});
+	},
+	delTwoFac: function(userID){
+		this.ajax('wordfence_twoFacDel', {
+			userID: userID
+			}, function(res){
+				if(res.ok){
+					jQuery('#twoFacCont_' + res.userID).fadeOut(function(){ jQuery(this).remove(); });
+				}
+			});
+	},
+	loadTwoFactor: function(){
+		this.ajax('wordfence_loadTwoFactor', {}, function(res){
+			if(res.users && res.users.length > 0){
+				for(var i = 0; i < res.users.length; i++){
+					jQuery('<div id="twoFacCont_' + res.users[i].userID + '">' + 
+						jQuery('#wfTwoFacUserTmpl').tmpl(res.users[i]).html() + 
+						 + '</div>').appendTo(jQuery('#wfTwoFacUsers'));
+				}
+			}
+			});
 	},
 	getQueryParam: function(name){
 		name = name.replace(/[\[]/, "\\\[").replace(/[\]]/, "\\\]");
