@@ -4,7 +4,7 @@ Donate link: https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business=paypal%4
 Contributors: westi
 Tested up to: 3.7
 Requires at least: 3.0.5
-Stable Tag: 0.96
+Stable Tag: 0.97
 
 == Description ==
 This plugin provides an easy way to get involved with Beta testing WordPress.
@@ -18,6 +18,9 @@ For the more adventerous there is the option to switch to the bleeding edge of d
 Don't forget to backup before your start!
 
 == Changelog ==
+
+= 0.98 =
+* Unforce HTTPS for all api.wordpress.org requests.
 
 = 0.97 =
 * Force HTTPS for all api.wordpress.org requests.
