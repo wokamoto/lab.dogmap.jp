@@ -3,10 +3,10 @@ Contributors: Otto42
 Plugin Name: Rainbowify
 Tags: rainbow, admin bar
 Requires at least: 3.2
-Tested up to: 3.3
+Tested up to: 3.8
 Stable tag: trunk
 
-The admin bar needs more rainbows.
+Now with more Nyan!
 
 == Description ==
 
@@ -18,12 +18,14 @@ Rainbows!
 2. Unzip the `rainbowify.zip` file
 3. Activate the plugin through the 'Plugins' menu in WordPress
 
-
 == Screenshots ==
 
 1. Rainbows!
 
 == Changelog ==
+
+= 1.0 = 
+* Moar nyan
 
 = 0.3 =
 * More 3.3 fixes

@@ -1,9 +1,9 @@
 === Flamingo ===
 Contributors: takayukister, megumithemes
 Tags: bird, contact, mail, crm
-Requires at least: 3.3
-Tested up to: 3.5.2
-Stable tag: 1.0.4
+Requires at least: 3.5
+Tested up to: 3.7.1
+Stable tag: 1.0.5
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -19,12 +19,13 @@ Flamingo is a WordPress plugin created to be a total CRM package. With this vers
 * Chinese, Simplified (zh_CN) - [ninghao](http://ninghao.net/)
 * Dutch (nl_NL) - [TenSheep](http://tensheep.nl/)
 * French (fr_FR) - [Benjamin Cousin](http://www.bewod.com/)
+* German (de_DE) - Christian Becker-Kapraun
 * Hebrew (he_IL) - [Dan Stramer](http://www.dmdesign.co.il/)
 * Hungarian (hu_HU) - Rózsahegyi Péter
 * Italian (it_IT) - Rosario Capparelli
 * Japanese (ja) - [Takayuki Miyoshi](http://ideasilo.wordpress.com)
 * Slovak (sk_SK) - Branco Radenovich
-* Spanish (es) - [Israel Ortuño](http://expander.es/)
+* Spanish (es_ES) - [Israel Ortuño](http://expander.es/)
 * Turkish (tr_TR) - Ömür YANIKOĞLU
 * Vietnamese (vi_VN) - [ICA Design](http://www.icadesign.vn/)
 
@@ -40,6 +41,13 @@ If you have created your own language pack, or have an update of an existing one
 == Screenshots ==
 
 == Changelog ==
+
+= 1.0.5 =
+
+* New: Support hierarchical channels (aka "sub channels") for inbound messages.
+* Improved spam management.
+* Translation for German has been created.
+* This version requires WordPress 3.5 or higher.
 
 = 1.0.4 =
 
