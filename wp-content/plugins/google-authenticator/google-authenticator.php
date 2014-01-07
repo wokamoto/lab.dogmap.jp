@@ -4,7 +4,7 @@ Plugin Name: Google Authenticator
 Plugin URI: http://henrik.schack.dk/google-authenticator-for-wordpress
 Description: Two-Factor Authentication for WordPress using the Android/iPhone/Blackberry app as One Time Password generator.
 Author: Henrik Schack
-Version: 0.45
+Version: 0.46
 Author URI: http://henrik.schack.dk/
 Compatibility: WordPress 3.8
 Text Domain: google-authenticator
@@ -78,7 +78,7 @@ function init() {
 /**
  * Check the verification code entered by the user.
  */
-function verify( $secretkey, $thistry, $relaxedmode ) {
+function verify( $secretkey, $thistry, $relaxedmode, $lasttimeslot ) {
 
 	// Did the user enter 6 digits ?
 	if ( strlen( $thistry ) != 6) {
@@ -117,7 +117,15 @@ function verify( $secretkey, $thistry, $relaxedmode ) {
 		$value = $value & 0x7FFFFFFF;
 		$value = $value % 1000000;
 		if ( $value === $thistry ) {
-			return true;
+			// Check for replay (Man-in-the-middle) attack.
+			// Since this is not Star Trek, time can only move forward,
+			// meaning current login attempt has to be in the future compared to
+			// last successful login.
+			if ( $lasttimeslot >= ($tm+$i) ) {
+				return false;
+			}
+			// Return timeslot in which login happened.
+			return $tm+$i;
 		}	
 	}
 	return false;
@@ -188,8 +196,12 @@ function check_otp( $user, $username = '', $password = '' ) {
 		} else {
 			$otp = '';
 		}
+		// When was the last successful login performed ?
+		$lasttimeslot = trim( get_user_option( 'googleauthenticator_lasttimeslot', $user->ID ) );
 		// Valid code ?
-		if ( $this->verify( $GA_secret, $otp, $GA_relaxedmode ) ) {
+		if ( $timeslot = $this->verify( $GA_secret, $otp, $GA_relaxedmode, $lasttimeslot ) ) {
+			// Store the timeslot in which login was successful.
+			update_user_option( $user->ID, 'googleauthenticator_lasttimeslot', $timeslot, true );
 			return $userstate;
 		} else {
 			// No, lets see if an app password is enabled, and this is an XMLRPC / APP login ?
@@ -210,7 +222,7 @@ function check_otp( $user, $username = '', $password = '' ) {
 				return new WP_Error( 'invalid_google_authenticator_token', __( '<strong>ERROR</strong>: The Google Authenticator code is incorrect or has expired.', 'google-authenticator' ) );
 			}	
 		}
-	}		
+	}
 	// Google Authenticator isn't enabled for this account,
 	// just resume normal authentication.
 	return $userstate;
@@ -261,10 +273,6 @@ function profile_personal_options() {
 	echo "</td>\n";
 	echo "</tr>\n";
 
-	// Create URL for the Google charts QR code generator.
-	$chl = rawurlencode( 'otpauth://totp/'.rawurlencode( $GA_description ).'?secret='.rawurlencode( $GA_secret ) );
-	$qrcodeurl = "https://chart.googleapis.com/chart?cht=qr&amp;chs=300x300&amp;chld=H|0&amp;chl={$chl}";
-
 	if ( $is_profile_page || IS_PROFILE_PAGE ) {
 		echo "<tr>\n";
 		echo "<th scope=\"row\">".__( 'Relaxed mode', 'google-authenticator' )."</th>\n";
@@ -283,14 +291,15 @@ function profile_personal_options() {
 		echo "<td>\n";
 		echo "<input name=\"GA_secret\" id=\"GA_secret\" value=\"{$GA_secret}\" readonly=\"readonly\"  type=\"text\" size=\"25\" />";
 		echo "<input name=\"GA_newsecret\" id=\"GA_newsecret\" value=\"".__("Create new secret",'google-authenticator')."\"   type=\"button\" class=\"button\" />";
-		echo "<input name=\"show_qr\" id=\"show_qr\" value=\"".__("Show/Hide QR code",'google-authenticator')."\"   type=\"button\" class=\"button\" onclick=\"jQuery('#GA_QR_INFO').toggle('slow');\" />";
+		echo "<input name=\"show_qr\" id=\"show_qr\" value=\"".__("Show/Hide QR code",'google-authenticator')."\"   type=\"button\" class=\"button\" onclick=\"ShowQRCodeAfterWarning();\" />";
 		echo "</td>\n";
 		echo "</tr>\n";
 
 		echo "<tr>\n";
 		echo "<th></th>\n";
 		echo "<td><div id=\"GA_QR_INFO\" style=\"display: none\" >";
-		echo "<img id=\"GA_QRCODE\"  src=\"{$qrcodeurl}\" alt=\"QR Code\"/>";
+		echo "<img id=\"GA_QRCODE\"  src=\"\" alt=\"QR Code\"/>";
+
 		echo '<span class="description"><br/> ' . __( 'Scan this with the Google Authenticator app.', 'google-authenticator' ) . '</span>';
 		echo "</div></td>\n";
 		echo "</tr>\n";
@@ -316,6 +325,11 @@ function profile_personal_options() {
 	echo "</tbody></table>\n";
 	echo "<script type=\"text/javascript\">\n";
 	echo "var GAnonce='".wp_create_nonce('GoogleAuthenticatoraction')."';\n";
+
+	echo "var qrcodewarningtext = '";
+	echo __( "WARNING:\\n\\nShowing the QR code will use the Google Chart API to do so.\\nIf you do not trust Google, please press Cancel and enter the code manually.",'google-authenticator' );
+	echo "';\n";
+
   	echo <<<ENDOFJS
   	var pwdata;
 	jQuery('#GA_newsecret').bind('click', function() {
@@ -329,14 +343,17 @@ function profile_personal_options() {
   			jQuery('#GA_QRCODE').attr('src',qrcodeurl);
   			jQuery('#GA_QR_INFO').show('slow');
   		});  	
-	});  
-	
-	jQuery('#GA_description').bind('focus blur change keyup', function() {
-  		chl=escape("otpauth://totp/"+jQuery('#GA_description').val()+"?secret="+jQuery('#GA_secret').val());
-  		qrcodeurl="https://chart.googleapis.com/chart?cht=qr&chs=300x300&chld=H|0&chl="+chl;
-  		jQuery('#GA_QRCODE').attr('src',qrcodeurl);
 	});
-	
+
+	jQuery('#GA_description').bind('focus blur change keyup', function() {
+		// Only update QRCode if it's already visible
+		if (jQuery('#GA_QR_INFO').is(':visible')) {
+  		    chl=escape("otpauth://totp/"+jQuery('#GA_description').val()+"?secret="+jQuery('#GA_secret').val());
+  		    qrcodeurl="https://chart.googleapis.com/chart?cht=qr&chs=300x300&chld=H|0&chl="+chl;
+  		    jQuery('#GA_QRCODE').attr('src',qrcodeurl);
+  		}
+	});
+
 	jQuery('#GA_createpassword').bind('click',function() {
 		var data=new Object();
 		data['action']	= 'GoogleAuthenticator_action';
@@ -366,10 +383,22 @@ function profile_personal_options() {
 			jQuery('#GA_pwdenabled').attr('disabled', true);
 			jQuery('#GA_createpassword').attr('disabled', true);
 		}
-	}		
+	}
+
+	function ShowQRCodeAfterWarning() {
+		if (jQuery('#GA_QR_INFO').is(':hidden')) {
+			if ( confirm(qrcodewarningtext) ) {
+		        chl=escape("otpauth://totp/"+jQuery('#GA_description').val()+"?secret="+jQuery('#GA_secret').val());
+	            qrcodeurl="https://chart.googleapis.com/chart?cht=qr&chs=300x300&chld=H|0&chl="+chl;
+	            jQuery('#GA_QRCODE').attr('src',qrcodeurl);
+	            jQuery('#GA_QR_INFO').show('slow');
+			}
+		} else {
+			jQuery('#GA_QR_INFO').hide('slow');
+		}
+	}
 </script>
 ENDOFJS;
-		
 }
 
 /**
