@@ -6,7 +6,7 @@ Author: wokamoto
 Author URI: http://dogmap.jp
 Version: 0.3
 */
-
+add_filter( 'really_simple_csv_importer_dry_run', function(){return true;});
 add_action( 'wp_head', 'rainbowify_comment_form' );
 function rainbowify_comment_form() {
 ?>

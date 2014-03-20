@@ -1,9 +1,9 @@
 === Flamingo ===
 Contributors: takayukister, megumithemes
 Tags: bird, contact, mail, crm
-Requires at least: 3.5
-Tested up to: 3.7.1
-Stable tag: 1.0.5
+Requires at least: 3.6
+Tested up to: 3.8.1
+Stable tag: 1.0.6
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -15,6 +15,7 @@ Flamingo is a WordPress plugin created to be a total CRM package. With this vers
 
 = Translators =
 
+* Arabic (ar) - Jeremy Varnham
 * Brazilian Portuguese (pt_BR) - [Ilton Alberto Junior](https://twitter.com/iltonalberto)
 * Chinese, Simplified (zh_CN) - [ninghao](http://ninghao.net/)
 * Dutch (nl_NL) - [TenSheep](http://tensheep.nl/)
@@ -24,6 +25,9 @@ Flamingo is a WordPress plugin created to be a total CRM package. With this vers
 * Hungarian (hu_HU) - Rózsahegyi Péter
 * Italian (it_IT) - Rosario Capparelli
 * Japanese (ja) - [Takayuki Miyoshi](http://ideasilo.wordpress.com)
+* Persian (Farsi; fa_IR) - Morteza Rahmani
+* Romanian (ro_RO) - [Inbox Translation](http://inboxtranslation.com/)
+* Russian (ru_RU) - [Pavel](http://wlstyling.crimea.ua/)
 * Slovak (sk_SK) - Branco Radenovich
 * Spanish (es_ES) - [Israel Ortuño](http://expander.es/)
 * Turkish (tr_TR) - Ömür YANIKOĞLU
@@ -41,6 +45,12 @@ If you have created your own language pack, or have an update of an existing one
 == Screenshots ==
 
 == Changelog ==
+
+= 1.0.6 =
+
+* Some admin UI have been modified to fit with WordPress 3.8 admin design.
+* Translations for Arabic, Romanian, Persian and Russian have been created.
+* This version requires WordPress 3.6 or higher.
 
 = 1.0.5 =
 

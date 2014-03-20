@@ -43,3 +43,11 @@ table.message-fields td.field-value li {
 	list-style: disc;
 	margin-left: 1em;
 }
+
+.tagsdiv {
+	margin-top: inherit;
+}
+
+.tablenav .actions input.button {
+	margin: 1px 8px 0 0;
+}

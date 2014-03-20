@@ -24,6 +24,46 @@
  * @subpackage Twenty_Fourteen
  * @since Twenty Fourteen 1.0
  */
+add_action('template_redirect', 'test');
+function category_name_struct($category_id){
+	$category = get_category($category_id);
+	$category_name_struct = isset($category->slug) ? $category->slug : '';
+	if ($category->parent)
+		$category_name_struct = category_name_struct($category->parent) . '/' . $category_name_struct;
+	return $category_name_struct;
+}
+function test(){
+	global $wp_query;
+	if ( !(isset($wp_query) && isset($wp_query->is_single) && $wp_query->is_single) )
+		return;
+
+	$permalink_structure = get_option('permalink_structure');
+	if ( strstr($permalink_structure, '%category%') === FALSE )
+		return;
+
+	$post_id = get_the_ID();
+	$category_name = get_query_var('category_name');
+	$category_names = explode('/', $category_name);
+	$categories = get_the_category();
+	$category_name_struct = '';
+	foreach($categories as $category) {
+		if ( in_array($category->slug, $category_names) ) {
+			$category_name_struct = $category->slug;
+			$parent_category_name = $category->parent ? category_name_struct($category->parent) : '';
+			if (!empty($parent_category_name))
+				$category_name_struct = $parent_category_name . '/' . $category_name_struct;
+		}
+	}
+	if (function_exists('dbgx_trace_var')) {
+		dbgx_trace_var($category_name);
+		dbgx_trace_var($category_name_struct);
+		dbgx_trace_var($category_name === $category_name_struct);
+	} else {
+		var_dump($post_id);
+		var_dump($category_name);
+		die();
+	}
+}
 
 /**
  * Set up the content width value based on the theme's design.
