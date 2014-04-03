@@ -39,10 +39,13 @@ class Flamingo_Inbound_Messages_List_Table extends WP_List_Table {
 			$args['s'] = $_REQUEST['s'];
 
 		if ( ! empty( $_REQUEST['orderby'] ) ) {
-			if ( 'subject' == $_REQUEST['orderby'] )
+			if ( 'subject' == $_REQUEST['orderby'] ) {
 				$args['meta_key'] = '_subject';
-			elseif ( 'from' == $_REQUEST['orderby'] )
+				$args['orderby'] = 'meta_value';
+			} elseif ( 'from' == $_REQUEST['orderby'] ) {
 				$args['meta_key'] = '_from';
+				$args['orderby'] = 'meta_value';
+			}
 		}
 
 		if ( ! empty( $_REQUEST['order'] ) && 'asc' == strtolower( $_REQUEST['order'] ) )
@@ -199,6 +202,7 @@ class Flamingo_Inbound_Messages_List_Table extends WP_List_Table {
 				'taxonomy' => Flamingo_Inbound_Message::channel_taxonomy,
 				'name' => 'channel_id',
 				'show_option_all' => __( 'View all channels', 'flamingo' ),
+				'show_count' => 1,
 				'hide_empty' => 0,
 				'hide_if_empty' => 1,
 				'orderby' => 'name',
@@ -207,6 +211,12 @@ class Flamingo_Inbound_Messages_List_Table extends WP_List_Table {
 
 			submit_button( __( 'Filter', 'flamingo' ),
 				'secondary', false, false, array( 'id' => 'post-query-submit' ) );
+
+
+			if ( ! $this->is_spam && ! $this->is_trash ) {
+				submit_button( __( 'Export', 'flamingo' ),
+					'secondary', 'export', false );
+			}
 		}
 
 		if ( $this->is_trash && current_user_can( 'flamingo_delete_inbound_messages' ) ) {

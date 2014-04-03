@@ -33,15 +33,6 @@ function flamingo_admin_menu() {
 		'flamingo_inbound_admin_page' );
 
 	add_action( 'load-' . $inbound_admin, 'flamingo_load_inbound_admin' );
-/*
-	$outbound_admin = add_submenu_page( 'flamingo',
-		__( 'Flamingo Outbound Messages', 'flamingo' ),
-		__( 'Outbound Messages', 'flamingo' ),
-		'flamingo_edit_outbound_messages', 'flamingo_outbound',
-		'flamingo_outbound_admin_page' );
-
-	add_action( 'load-' . $outbound_admin, 'flamingo_load_outbound_admin' );
-*/
 }
 
 add_filter( 'set-screen-option', 'flamingo_set_screen_options', 10, 3 );
@@ -180,6 +171,8 @@ function flamingo_load_contact_admin() {
 	}
 
 	if ( ! empty( $_GET['export'] ) ) {
+		check_admin_referer( 'bulk-posts' );
+
 		$sitename = sanitize_key( get_bloginfo( 'name' ) );
 
 		$filename = ( empty( $sitename ) ? '' : $sitename . '-' )
@@ -187,7 +180,7 @@ function flamingo_load_contact_admin() {
 
 		header( 'Content-Description: File Transfer' );
 		header( "Content-Disposition: attachment; filename=$filename" );
-		header( 'Content-Type: text/xml; charset=' . get_option( 'blog_charset' ), true );
+		header( 'Content-Type: text/csv; charset=' . get_option( 'blog_charset' ) );
 
 		$labels = array(
 			__( 'Email', 'flamingo' ), __( 'Full name', 'flamingo' ),
@@ -388,6 +381,8 @@ function flamingo_load_inbound_admin() {
 	}
 
 	if ( 'delete_all' == $action ) {
+		check_admin_referer( 'bulk-posts' );
+
 		$_REQUEST['post'] = flamingo_get_all_ids_in_trash(
 			Flamingo_Inbound_Message::post_type );
 
@@ -477,6 +472,87 @@ function flamingo_load_inbound_admin() {
 			$redirect_to = add_query_arg( array( 'message' => 'inboundunspammed' ), $redirect_to );
 
 		wp_safe_redirect( $redirect_to );
+		exit();
+	}
+
+	if ( ! empty( $_GET['export'] ) ) {
+		check_admin_referer( 'bulk-posts' );
+
+		$sitename = sanitize_key( get_bloginfo( 'name' ) );
+
+		$filename = ( empty( $sitename ) ? '' : $sitename . '-' )
+			. sprintf( 'flamingo-inbound-%s.csv', date( 'Y-m-d' ) );
+
+		header( 'Content-Description: File Transfer' );
+		header( "Content-Disposition: attachment; filename=$filename" );
+		header( 'Content-Type: text/csv; charset=' . get_option( 'blog_charset' ) );
+
+		$args = array(
+			'posts_per_page' => -1,
+			'orderby' => 'date',
+			'order' => 'DESC' );
+
+		if ( ! empty( $_REQUEST['s'] ) ) {
+			$args['s'] = $_REQUEST['s'];
+		}
+
+		if ( ! empty( $_REQUEST['orderby'] ) ) {
+			if ( 'subject' == $_REQUEST['orderby'] ) {
+				$args['meta_key'] = '_subject';
+				$args['orderby'] = 'meta_value';
+			} elseif ( 'from' == $_REQUEST['orderby'] ) {
+				$args['meta_key'] = '_from';
+				$args['orderby'] = 'meta_value';
+			}
+		}
+
+		if ( ! empty( $_REQUEST['order'] )
+		&& 'asc' == strtolower( $_REQUEST['order'] ) ) {
+			$args['order'] = 'ASC';
+		}
+
+		if ( ! empty( $_REQUEST['m'] ) ) {
+			$args['m'] = $_REQUEST['m'];
+		}
+
+		if ( ! empty( $_REQUEST['channel_id'] ) ) {
+			$args['channel_id'] = $_REQUEST['channel_id'];
+		}
+		
+		if ( ! empty( $_REQUEST['channel'] ) ) {
+			$args['channel'] = $_REQUEST['channel'];
+		}
+
+		$items = Flamingo_Inbound_Message::find( $args );
+
+		if ( empty( $items ) ) {
+			exit();
+		}
+
+		$labels = array_keys( $items[0]->fields );
+		$labels[] = __( 'Date', 'flamingo' );
+		echo flamingo_csv_row( $labels );
+
+		foreach ( $items as $item ) {
+			$row = array();
+
+			foreach ( $labels as $label ) {
+				$col = isset( $item->fields[$label] ) ? $item->fields[$label] : '';
+
+				if ( is_array( $col ) ) {
+					$col = flamingo_array_flatten( $col );
+					$col = array_filter( array_map( 'trim', $col ) );
+					$col = implode( ', ', $col );
+				}
+
+				$row[] = $col;
+			}
+
+			$row[] = get_post_time( 'c', true, $item->id );
+
+			echo "\r\n" . flamingo_csv_row( $row );
+		}
+
 		exit();
 	}
 
