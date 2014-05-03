@@ -16,12 +16,14 @@ while(($ent = readdir()) !== false) {
 }
 closedir();
 
-/*
+//add_action('admin_init-tools.php', function(){
+//wp_die(__('You do not have sufficient permissions to view this page.'));
+//});
+
 add_filter('crazy_bone::admin_menu_capability', 'crazy_bone_capability');
 function crazy_bone_capability(){
 	return 'edit_users';
 }
-*/
 
 add_filter('views_edit-post', 'add_export_link');
 function add_export_link( $views ){
