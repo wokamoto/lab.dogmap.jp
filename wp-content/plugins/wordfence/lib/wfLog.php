@@ -45,11 +45,17 @@ class wfLog {
 			);
 	}
 	public function logLogin($action, $fail, $username){
+		if(! $username){
+			return;
+		}
 		$user = get_user_by('login', $username);
 		$userID = 0;
 		if($user){
 			$userID = $user->ID;
-		}
+			if(! $userID){
+				return;
+			}
+		} //Else userID stays 0 but we do log this even though the user doesn't exist. 
 		$this->getDB()->queryWrite("insert into " . $this->loginsTable . " (ctime, fail, action, username, userID, IP, UA) values (%f, %d, '%s', '%s', %s, %s, '%s')", 
 			sprintf('%.6f', microtime(true)),
 			$fail,
@@ -96,6 +102,16 @@ class wfLog {
 				if(wfCrawl::isGooglebot() && (! wfCrawl::verifyCrawlerPTR($this->googlePattern, $IP) )){
 					$this->blockIP($IP, "Fake Google crawler automatically blocked");
 					wordfence::status(2, 'info', "Blocking fake Googlebot at IP $IP");
+				}
+			}
+			if(wfConfig::get('bannedURLs', false)){
+				$URLs = explode(',', wfConfig::get('bannedURLs'));
+				foreach($URLs as $URL){
+					if($_SERVER['REQUEST_URI'] == trim($URL)){
+						$this->blockIP($IP, "Accessed a banned URL.");
+						$this->do503(3600, "Accessed a banned URL.");
+						//exits
+					}
 				}
 			}
 
@@ -273,6 +289,7 @@ class wfLog {
 				);
 		}
 		wfCache::updateBlockedIPs('add');
+		wfConfig::inc('totalIPsBlocked');
 		return true;
 	}
 	public function lockOutIP($IP, $reason){
@@ -282,6 +299,7 @@ class wfLog {
 			$reason,
 			$reason
 			);
+		wfConfig::inc('totalIPsLocked');
 		return true;
 	}
 	public function unlockOutIP($IP){
@@ -705,6 +723,7 @@ class wfLog {
 								}
 							} else {
 								$this->do503(3600, "Access from your area has been temporarily limited for security reasons");
+								wfConfig::inc('totalCountryBlocked');
 							}
 						}
 					}
@@ -760,6 +779,7 @@ class wfLog {
 				$IP = wfUtils::getIP();
 				$this->getDB()->queryWrite("insert into " . $this->throttleTable . " (IP, startTime, endTime, timesThrottled, lastReason) values (%s, unix_timestamp(), unix_timestamp(), 1, '%s') ON DUPLICATE KEY UPDATE endTime=unix_timestamp(), timesThrottled = timesThrottled + 1, lastReason='%s'", wfUtils::inet_aton($IP), $reason, $reason);
 				wordfence::status(2, 'info', "Throttling IP $IP. $reason");
+				wfConfig::inc('totalIPsThrottled');
 				$secsToGo = 60;
 			}
 			$this->do503($secsToGo, $reason);
@@ -767,7 +787,8 @@ class wfLog {
 			return;
 		}
 	}
-	private function do503($secsToGo, $reason){
+	public function do503($secsToGo, $reason){
+		wfConfig::inc('total503s');
 		wfUtils::doNotCache();
 		header('HTTP/1.1 503 Service Temporarily Unavailable');
 		header('Status: 503 Service Temporarily Unavailable');

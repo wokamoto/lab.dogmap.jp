@@ -1,9 +1,9 @@
 === Wordfence Security ===
 Contributors: mmaunder 
-Tags: wordpress, security, performance, speed, caching, cache, caching plugin, wordpress cache, wordpress caching, wordpress security, security plugin, secure, anti-virus, malware, firewall, antivirus, virus, google safe browsing, phishing, scrapers, hacking, wordfence, securty, secrity, secure, two factor, cellphone sign-in, cellphone signin, cellphone, twofactor, security, secure, htaccess, login, log, users, login alerts, lock, chmod, maintenance, plugin, private, privacy, protection, permissions, 503, base64, injection, code, encode, script, attack, hack, hackers, block, blocked, prevent, prevention, RFI, XSS, CRLF, CSRF, SQL Injection, vulnerability, website security, WordPress security, security log, logging, HTTP log, error log, login security, personal security, infrastructure security, firewall security, front-end security, web server security, proxy security, reverse proxy security, secure website, secure login, two factor security, maximum login security, heartbleed, heart bleed, heartbleed vulnerability, openssl vulnerability, nginx, litespeed, php5-fpm
+Tags: wordpress, security, performance, speed, caching, cache, caching plugin, wordpress cache, wordpress caching, wordpress security, security plugin, secure, anti-virus, malware, firewall, antivirus, virus, google safe browsing, phishing, scrapers, hacking, wordfence, securty, secrity, secure, two factor, cellphone sign-in, cellphone signin, cellphone, twofactor, security, secure, htaccess, login, log, users, login alerts, lock, chmod, maintenance, plugin, private, privacy, protection, permissions, 503, base64, injection, code, encode, script, attack, hack, hackers, block, blocked, prevent, prevention, RFI, XSS, CRLF, CSRF, SQL Injection, vulnerability, website security, WordPress security, security log, logging, HTTP log, error log, login security, personal security, infrastructure security, firewall security, front-end security, web server security, proxy security, reverse proxy security, secure website, secure login, two factor security, maximum login security, heartbleed, heart bleed, heartbleed vulnerability, openssl vulnerability, nginx, litespeed, php5-fpm, woocommerce support, woocommerce caching
 Requires at least: 3.3.1
-Tested up to: 3.9
-Stable tag: 5.0.6
+Tested up to: 3.9.1
+Stable tag: 5.1.2
 
 Wordfence Security is a free enterprise class security and performance plugin that makes your site up to 50 times faster and more secure. 
 
@@ -27,6 +27,7 @@ Wordfence Security is now Multi-Site compatible and includes Cellphone Sign-in w
 Wordfence Security:
 
 * Includes Falcon Engine, the fastest WordPress caching engine available today. Falcon is faster because it reduces your web server disk and database activity to a minimum.
+* Includes support for other major plugins and themes like WooCommerce.
 * Real-time blocking of known attackers. If another site using Wordfence is attacked and blocks the attacker, your site is automatically protected.
 * Sign-in using your password and your cellphone to vastly improve login security. This is called Two Factor Authentication and is used by banks, government agencies and military world-wide for highest security authentication. 
 * Includes two-factor authentication, also referred to as cellphone sign-in. 
@@ -161,6 +162,52 @@ cause a security hole on your site.
 5. If you're technically minded, this is the under-the-hood view of Wordfence Security options where you can fine-tune your security settings.
 
 == Changelog ==
+
+= 5.1.2 =
+* Feature: You can now specify one or more URL's that if accessed will cause the IP to immediately be blocked. See below "Other Options" for the new feature.
+* Improvement: Added additional debugging info when cron key does not match saved key to help diagnose any problems. 
+* Improvement: New Issues email now contains site URL rather than just hostname to help identify subdirectory sites. 
+* Improvement: Upgraded the country blocking database to the newest version which is June 2014.
+* Fix: Some browser versions were being reported as 0.0. Updated browser detection. 
+
+= 5.1.1 =
+* Improvement: WooCommerce now officially supported out of the box. 
+* Feature: Added the wordfence:doNotCache() function that you can call in your themes and plugins to prevent caching of items. 
+* Fix: Fixed the warning appearing in lib/wfUtils.php about a scalar being treated as an array which appeared in 5.0.9. 
+* Fix: Failed logins were not being logged for non-existent usernames that were set to immediatelly block. Fixed. 
+* Fix: Removed several warnings/notices that would appear when WP_DEBUG is enabled. 
+* Fix: Added default character set to .htaccess which fixes garbled international characters being served from cache on sites with no default apache charset.
+
+= 5.0.9 =
+* Feature: (Premium) Advanced Comment Spam Filter. Checks comment source IP, author URL and hosts and IP's in body against additional spam lists. 
+* Feature: (Premium) Check if your site is being Spamvertised i.e. your domain is being included in spam emails. Usually indicates you've been hacked.
+* Feature: (Premium) Check if your website IP is generating spam. Checks against spam lists if your IP is a known source of spam.
+* Improvement: Cache clearing errors are nown shown with clear explanations. 
+* Improvement: Added lightweight stats logging internally in preparation for displaying them on the admin UI in the next release. 
+* Fix: If a non-existent user tries to sign in it is not logged in the live logins tab. Fixed.
+* Fix: Removed warning "Trying to get property of non-object" that would occur under certain conditions. 
+* Fix: Removed call to is_404()  which was not having any effect and would issue a warning if debug mode is enabled. 
+* Fix: Check if CURL is installed as part of connectivity test.
+
+= 5.0.8 =
+* Feature: Support for Jetpack Mobile Theme in Falcon Caching engine. Regular pages are cached, mobile pages are served direct to browser. 
+* Improvement: Pages that are less than 1000 bytes will not be cached. The avg web page size in 2014 is 1246,000 bytes. Anything less than 1000 bytes is usually an error. 
+* Improvement: Wordfence will now request 128M on hosts instead of 64M where memory in php.ini is set too low. 
+* Fix: Wordfence was caching 404's under certain conditions. Fixed. 
+* Fix: Nginx/FastCGI users would sometimes receive an error about not being able to edit .htaccess. Fixed. 
+
+= 5.0.7 =
+* Feature: Immediately block IP if hacker tries any of the following usernames. (Comma separated list that you can specify on the Wordfence options page)
+* Feature: Exclude exact URL's from caching. Specifically, this allows you to exclude the home page which was not possible before. 
+* Feature: Exclude browsers or partial browser matches and specific cookies from caching. 
+* Fix: Fixed issue where /.. dirs would be included in certain scandir operations. 
+* Fix: logHuman function was not analyzing user-agent strings correctly which would allow some crawlers that execute JS to be logged as humans. 
+* Fix: Removed ob_end_clean warnings about empty buffers when a human is being logged. 
+* Fix: Removed warning in lib/wfCache.php caused by unset $_SERVER['QUERY_STRING'] when we check it. 
+* Fix: Fixed "logged out as ''" blank username logout messages. 
+* Fix: Improved security of config cache by adding a PHP header to file that we strip. Already secure because we have a .htaccess denying access, but more is better. 
+* Fix: Falcon Engine option to clear Falcon cache when a post scheduled to be published in future is published.
+* Fix: Fixed Heartbleed scans hanging. 
 
 = 5.0.6 =
 * Feature: Prevent discovery of usernames through '?/author=N' scans. New option under login security which you can enable. 

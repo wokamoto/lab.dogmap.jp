@@ -28,6 +28,7 @@ class wordfence {
 	private static $statusStartMsgs = array();
 	private static $debugOn = null;
 	private static $runInstallCalled = false;
+	public static $commentSpamItems = array();
 	public static function installPlugin(){
 		self::runInstall();
 		//Used by MU code below
@@ -125,7 +126,7 @@ class wordfence {
 			}
 		}
 	}
-	private function keyAlert($msg){
+	private static function keyAlert($msg){
 		self::alert($msg, $msg . " To ensure uninterrupted Premium Wordfence protection on your site,\nplease renew your API key by visiting http://www.wordfence.com/ Sign in, go to your dashboard,\nselect the key about to expire and click the button to renew that API key.", false);
 	}
 	public static function dailyCron(){
@@ -349,6 +350,10 @@ class wordfence {
 			add_action('wp_ajax_wordfence_logHuman', 'wordfence::ajax_logHuman_callback');
 			add_action('wp_ajax_wordfence_doScan', 'wordfence::ajax_doScan_callback');
 			add_action('wp_ajax_wordfence_testAjax', 'wordfence::ajax_testAjax_callback');
+			/*
+			add_action('wp_dashboard_setup', 'wordfence::addDashboardWidget');
+			*/
+
 		}
 
 
@@ -359,11 +364,14 @@ class wordfence {
 		add_action('init', 'wordfence::initAction');
 		add_action('template_redirect', 'wordfence::templateRedir');
 		add_action('shutdown', 'wordfence::shutdownAction');
+		
 		if(version_compare(PHP_VERSION, '5.4.0') >= 0){
 			add_action('wp_authenticate','wordfence::authActionNew', 1, 2);
 		} else {
 			add_action('wp_authenticate','wordfence::authActionOld', 1, 2);
 		}
+		add_filter('authenticate', 'wordfence::authenticateFilter', 99, 3);
+
 		add_action('login_init','wordfence::loginInitAction');
 		add_action('wp_login','wordfence::loginAction');
 		add_action('wp_logout','wordfence::logoutAction');
@@ -373,13 +381,14 @@ class wordfence {
 			add_action('profile_update', 'wordfence::profileUpdateAction', '99', 2);
 			add_action('validate_password_reset', 'wordfence::validatePassword', 10, 2 );
 		}
+		add_action('publish_future_post', 'wordfence::publishFuturePost');
+		add_action('mobile_setup', 'wordfence::jetpackMobileSetup'); //Action called in Jetpack Mobile Theme: modules/minileven/minileven.php
 
 		//For debugging
 		//add_filter( 'cron_schedules', 'wordfence::cronAddSchedules' );
  
 		add_filter('wp_redirect', 'wordfence::wpRedirectFilter', 99, 2);
 		add_filter('pre_comment_approved', 'wordfence::preCommentApprovedFilter', '99', 2);
-		add_filter('authenticate', 'wordfence::authenticateFilter', 99, 3);
 		//html|xhtml|atom|rss2|rdf|comment|export
 		add_filter('get_the_generator_html', 'wordfence::genFilter', 99, 2);
 		add_filter('get_the_generator_xhtml', 'wordfence::genFilter', 99, 2);
@@ -415,8 +424,19 @@ class wordfence {
 		return $schedules;
 	}
 	*/
+	/*
+	public static function addDashboardWidget(){
+		wp_add_dashboard_widget('wordfenceDashboardWidget', 'Wordfence Security Status', 'wordfence::displayDashboardWidget');
+	}
+	public static function displayDashboardWidget(){
+		require('dashboard.php');
+	}
+	*/
+	public static function jetpackMobileSetup(){
+		define('WFDONOTCACHE', true); //Don't cache jetpack mobile theme pages. 
+	}
 	public static function wpRedirectFilter($URL, $status){
-		if(isset($_GET['author']) && preg_match('/^https?:\/\/[^\/]+\/author\/.+/i', $URL) && wfConfig::get('loginSec_disableAuthorScan') ){ //author query variable is present and we're about to redirect to a URL that starts with http://blah/author/...
+		if(isset($_GET['author']) && preg_match('/\/author\/.+/i', $URL) && wfConfig::get('loginSec_disableAuthorScan') ){ //author query variable is present and we're about to redirect to a URL that starts with http://blah/author/...
 			return home_url(); //Send the user to the home URL (as opposed to site_url() which is not the home page on some sites)
 		}
 		return $URL;
@@ -452,13 +472,13 @@ class wordfence {
 		$UA = isset($_SERVER['HTTP_USER_AGENT']) ? $_SERVER['HTTP_USER_AGENT'] : '';
 		$isCrawler = false;
 		if($UA){
-			$b = $browscap->getBrowser($res['UA']);
+			$b = $browscap->getBrowser($UA);
 			if($b['Crawler']){
 				$isCrawler = true;
 			}
 		}
 
-		ob_end_clean();
+		@ob_end_clean();
 		if(! headers_sent()){ 
 			header('Content-type: text/javascript');
 			header("Connection: close");
@@ -479,8 +499,8 @@ class wordfence {
 		if(! wfUtils::isAdmin()){
 			die(json_encode(array('errorMsg' => "You appear to have logged out or you are not an admin. Please sign-out and sign-in again.")));
 		}
-		$func = $_POST['action'] ? $_POST['action'] : $_GET['action'];
-		$nonce = $_POST['nonce'] ? $_POST['nonce'] : $_GET['nonce'];
+		$func = (isset($_POST['action']) && $_POST['action']) ? $_POST['action'] : $_GET['action'];
+		$nonce = (isset($_POST['nonce']) && $_POST['nonce']) ? $_POST['nonce'] : $_GET['nonce'];
 		if(! wp_verify_nonce($nonce, 'wp-ajax')){ 
 			die(json_encode(array('errorMsg' => "Your browser sent an invalid security token to Wordfence. Please try reloading this page or signing out and in again.")));
 		}
@@ -501,6 +521,11 @@ class wordfence {
 		$returnArr['nonce'] = wp_create_nonce('wp-ajax');
 		die(json_encode($returnArr));
 		exit;
+	}
+	public static function publishFuturePost($id){
+		if(wfConfig::get('clearCacheSched')){
+			wfCache::scheduleCacheClear();
+		}
 	}
 	public static function validateProfileUpdate($errors, $update, $userData){
 		wordfence::validatePassword($errors, $userData);
@@ -694,9 +719,21 @@ class wordfence {
 	public static function loginAction($username){
 		if(sizeof($_POST) < 1){ return; } //only execute if login form is posted
 		if(! $username){ return; }
+		wfConfig::inc('totalLogins');	
 		$user = get_user_by('login', $username);
 		$userID = $user ? $user->ID : 0;
 		self::getLog()->logLogin('loginOK', 0, $username);
+		if(wfUtils::isAdmin($user)){
+			wfConfig::set_ser('lastAdminLogin', array(
+				'userID' => $userID,
+				'username' => $username,
+				'firstName' => $user->first_name,
+				'lastName' => $user->last_name,
+				'time' => wfUtils::localHumanDateShort(),
+				'IP' => wfUtils::getIP()
+				));
+		}
+
 		if(user_can($userID, 'update_core')){
 			if(wfConfig::get('alertOn_adminLogin')){ 
 				wordfence::alert("Admin Login", "A user with username \"$username\" who has administrator access signed in to your WordPress site.", wfUtils::getIP());
@@ -713,14 +750,15 @@ class wordfence {
 		}
 		return $errors;
 	}
-	public static function authenticateFilter($authResult){
+	public static function authenticateFilter($authUser, $username, $passwd){
+		wfConfig::inc('totalLoginHits'); //The total hits to wp-login.php including logins, logouts and just hits.
 		$IP = wfUtils::getIP();	
 		$secEnabled = wfConfig::get('loginSecurityEnabled');
 		if($secEnabled && (! self::getLog()->isWhitelisted($IP)) && wfConfig::get('isPaid') ){
 			$twoFactorUsers = wfConfig::get_ser('twoFactorUsers', array());
 			if(isset($twoFactorUsers) && is_array($twoFactorUsers) && sizeof($twoFactorUsers) > 0){
-				$userDat = $_POST['wordfence_userDat'];
-				 if(get_class($authResult) == 'WP_User'){ //Valid username and password either with or without the 'wf...' code. Users is now logged in at this point. 
+				$userDat = (isset($_POST['wordfence_userDat']) ? $_POST['wordfence_userDat'] : false);
+				 if(is_object($userDat) && get_class($authUser) == 'WP_User'){ //Valid username and password either with or without the 'wf...' code. Users is now logged in at this point. 
 					if(isset($_POST['wordfence_authFactor']) && $_POST['wordfence_authFactor']){ //user entered a valid user and password with ' wf....' appended
 						foreach($twoFactorUsers as &$t){
 							if($t[0] == $userDat->ID && $t[3] == 'activated'){
@@ -770,21 +808,34 @@ class wordfence {
 		}
 
 		if(self::getLog()->isWhitelisted($IP)){
-			return $authResult;
+			return $authUser;
 		}
-		if(wfConfig::get('other_WFNet') && is_wp_error($authResult) && ($authResult->get_error_code() == 'invalid_username' || $authResult->get_error_code() == 'incorrect_password') ){
+		if(wfConfig::get('other_WFNet') && is_wp_error($authUser) && ($authUser->get_error_code() == 'invalid_username' || $authUser->get_error_code() == 'incorrect_password') ){
 			if($maxBlockTime = self::wfsnIsBlocked($IP, 'brute')){
 				self::getLog()->blockIP($IP, "Blocked by Wordfence Security Network", true, false, $maxBlockTime);
 			}
 				
 		}
 		if($secEnabled){
-			if(is_wp_error($authResult) && $authResult->get_error_code() == 'invalid_username' && wfConfig::get('loginSec_lockInvalidUsers')){
-				self::lockOutIP($IP, "Used an invalid username '" . $_POST['log'] . "' to try to sign in.");
-				require('wfLockedOut.php');
+			if(is_wp_error($authUser) && $authUser->get_error_code() == 'invalid_username'){
+				if($blacklist = wfConfig::get('loginSec_userBlacklist')){
+					$users = explode(',', $blacklist);
+					foreach($users as $user){
+						if(strtolower($_POST['log']) == strtolower($user)){
+							self::getLog()->blockIP($IP, "Blocked by login security setting.");
+							$secsToGo = wfConfig::get('blockedTime');
+							self::getLog()->do503($secsToGo, "Blocked by login security setting.");
+							break;
+						}
+					}
+				}
+				if(wfConfig::get('loginSec_lockInvalidUsers')){
+					self::lockOutIP($IP, "Used an invalid username '" . $_POST['log'] . "' to try to sign in.");
+					require('wfLockedOut.php');
+				}
 			}
 			$tKey = 'wflginfl_' . wfUtils::inet_aton($IP);
-			if(is_wp_error($authResult) && ($authResult->get_error_code() == 'invalid_username' || $authResult->get_error_code() == 'incorrect_password') ){
+			if(is_wp_error($authUser) && ($authUser->get_error_code() == 'invalid_username' || $authUser->get_error_code() == 'incorrect_password') ){
 				$tries = get_transient($tKey);
 				if($tries){
 					$tries++;
@@ -796,14 +847,22 @@ class wordfence {
 					require('wfLockedOut.php');
 				}
 				set_transient($tKey, $tries, wfConfig::get('loginSec_countFailMins') * 60);
-			} else if(get_class($authResult) == 'WP_User'){
+			} else if(get_class($authUser) == 'WP_User'){
 				delete_transient($tKey); //reset counter on success
 			}
 		}
-		if(is_wp_error($authResult) && ($authResult->get_error_code() == 'invalid_username' || $authResult->get_error_code() == 'incorrect_password') && wfConfig::get('loginSec_maskLoginErrors')){
+		if(is_wp_error($authUser)){
+			if($authUser->get_error_code() == 'invalid_username'){
+				self::getLog()->logLogin('loginFailInvalidUsername', 1, $username); 
+			} else {
+				self::getLog()->logLogin('loginFailValidUsername', 1, $username); 
+			}
+		}
+
+		if(is_wp_error($authUser) && ($authUser->get_error_code() == 'invalid_username' || $authUser->get_error_code() == 'incorrect_password') && wfConfig::get('loginSec_maskLoginErrors')){
 			return new WP_Error( 'incorrect_password', sprintf( __( '<strong>ERROR</strong>: The username or password you entered is incorrect. <a href="%2$s" title="Password Lost and Found">Lost your password</a>?' ), $_POST['log'], wp_lostpassword_url() ) );
 		}
-		return $authResult;
+		return $authUser;
 	}
 	public static function wfsnReportBlockedAttempt($IP, $type){
 		try {
@@ -842,7 +901,9 @@ class wordfence {
 	public static function logoutAction(){
 		$userID = get_current_user_id();
 		$userDat = get_user_by('id', $userID);
-		self::getLog()->logLogin('logout', 0, $userDat->user_login); 
+		if(is_object($userDat)){
+			self::getLog()->logLogin('logout', 0, $userDat->user_login); 
+		}
 	}
 	public static function loginInitAction(){
 		if(self::isLockedOut(wfUtils::getIP())){
@@ -861,16 +922,6 @@ class wordfence {
 			$passwd = preg_replace('/^(.+)\s+(wf[a-z0-9]+)$/i', '$1', $passwd);
 			$_POST['pwd'] = $passwd;
 		}
-
-		if($userDat){
-			require_once( ABSPATH . 'wp-includes/class-phpass.php');
-			$hasher = new PasswordHash(8, TRUE);
-			if(! $hasher->CheckPassword($_POST['pwd'], $userDat->user_pass)){
-				self::getLog()->logLogin('loginFailValidUsername', 1, $username); 
-			}
-		} else {
-			self::getLog()->logLogin('loginFailInvalidUsername', 1, $username); 
-		}
 	}
 	public static function authActionOld($username, $passwd){ //Code is identical to Newer function above except passing by ref ampersand. Some versions of PHP are throwing an error if we include the ampersand in PHP prior to 5.4.
 		if(self::isLockedOut(wfUtils::getIP())){
@@ -884,18 +935,7 @@ class wordfence {
 			$passwd = preg_replace('/^(.+)\s+(wf[a-z0-9]+)$/i', '$1', $passwd);
 			$_POST['pwd'] = $passwd;
 		}
-
-		if($userDat){
-			require_once( ABSPATH . 'wp-includes/class-phpass.php');
-			$hasher = new PasswordHash(8, TRUE);
-			if(! $hasher->CheckPassword($_POST['pwd'], $userDat->user_pass)){
-				self::getLog()->logLogin('loginFailValidUsername', 1, $username); 
-			}
-		} else {
-			self::getLog()->logLogin('loginFailInvalidUsername', 1, $username); 
-		}
 	}
-
 	public static function getWPFileContent($file, $cType, $cName, $cVersion){
 		if($cType == 'plugin'){
 			if(preg_match('#^/?wp-content/plugins/[^/]+/#', $file)){
@@ -1297,6 +1337,7 @@ class wordfence {
 		}
 		wfConfig::set('allowHTTPSCaching', $_POST['allowHTTPSCaching'] == '1' ? 1 : 0);
 		wfConfig::set('addCacheComment', $_POST['addCacheComment'] == 1 ? '1' : 0);
+		wfConfig::set('clearCacheSched', $_POST['clearCacheSched'] == 1 ? '1' : 0);
 		if($changed && wfConfig::get('cacheType', false) == 'falcon'){
 			$err = wfCache::addHtaccessCode('add');
 			if($err){
@@ -1419,6 +1460,10 @@ class wordfence {
 	}
 	public static function ajax_clearPageCache_callback(){
 		$stats = wfCache::clearPageCache();
+		if($stats['error']){
+			$body = "A total of " . $stats['totalErrors'] . " errors occurred while trying to clear your cache. The last error was: " . $stats['error'];
+			return array('ok' => 1, 'heading' => 'Error occurred while clearing cache', 'body' => $body );
+		}
 		$body = "A total of " . $stats['filesDeleted'] . ' files were deleted and ' . $stats['dirsDeleted'] . ' directories were removed. We cleared a total of ' . $stats['totalData'] . 'KB of data in the cache.';
 		if($stats['totalErrors'] > 0){
 			$body .=  ' A total of ' . $stats['totalErrors'] . ' errors were encountered. This probably means that we could not remove some of the files or directories in the cache. Please use your CPanel or file manager to remove the rest of the files in the directory: ' . WP_CONTENT_DIR . '/wfcache/';
@@ -1472,6 +1517,11 @@ class wordfence {
 			);
 		wfConfig::set('cacheExclusions', serialize($ex));
 		wfCache::scheduleCacheClear();
+		if(wfConfig::get('cacheType', false) == 'falcon' && preg_match('/^(?:uac|uaeq|cc)$/', $_POST['patternType'])){
+			if(wfCache::addHtaccessCode('add')){ //rewrites htaccess rules
+				return array('errorMsg' => "We added the rule you requested but could not modify your .htaccess file. Please delete this rule, check the permissions on your .htaccess file and then try again.");
+			}
+		}
 		return array('ok' => 1);
 	}
 	public static function ajax_removeCacheExclusion_callback(){
@@ -1481,13 +1531,20 @@ class wordfence {
 			return array('ok' => 1);
 		}
 		$ex = unserialize($ex);
+		$rewriteHtaccess = false;
 		for($i = 0; $i < sizeof($ex); $i++){ 
 			if((string)$ex[$i]['id'] == (string)$id){
+				if(wfConfig::get('cacheType', false) == 'falcon' && preg_match('/^(?:uac|uaeq|cc)$/', $ex[$i]['pt'])){
+					$rewriteHtaccess = true;
+				}
 				array_splice($ex, $i, 1);
 				//Dont break in case of dups
 			}
 		}
 		wfConfig::set('cacheExclusions', serialize($ex));
+		if($rewriteHtaccess && wfCache::addHtaccessCode('add')){ //rewrites htaccess rules
+			return array('errorMsg', "We removed that rule but could not rewrite your .htaccess file. You're going to have to manually remove this rule from your .htaccess file. Please reload this page now.");
+		}
 		return array('ok' => 1);
 	}
 	public static function ajax_loadCacheExclusions_callback(){
@@ -1554,6 +1611,19 @@ class wordfence {
 				}
 			}
 		}
+		$userBlacklist = array();
+		foreach(explode(',', $opts['loginSec_userBlacklist']) as $user){
+			$user = trim($user);
+			if(strlen($user) > 0){
+				$userBlacklist[] = $user;
+			}
+		}
+		if(sizeof($userBlacklist) > 0){
+			$opts['loginSec_userBlacklist'] = implode(',', $userBlacklist);
+		} else {
+			$opts['loginSec_userBlacklist'] = '';
+		}
+
 		$opts['apiKey'] = trim($opts['apiKey']);
 		if($opts['apiKey'] && (! preg_match('/^[a-fA-F0-9]+$/', $opts['apiKey'])) ){ //User entered something but it's garbage.
 			return array('errorMsg' => "You entered an API key but it is not in a valid format. It must consist only of characters A to F and 0 to 9.");
@@ -1600,12 +1670,18 @@ class wordfence {
 		if($opts['howGetIPs'] != wfConfig::get('howGetIPs', '')){
 			$reload = 'reload';
 		}
-
+		$regenerateHtaccess = false;
+		if(wfConfig::get('bannedURLs', false) != $opts['bannedURLs']){
+			$regenerateHtaccess = true;
+		}
 
 		foreach($opts as $key => $val){
 			if($key != 'apiKey'){ //Don't save API key yet
 				wfConfig::set($key, $val);
 			}
+		}
+		if($regenerateHtaccess){
+			wfCache::addHtaccessCode('add');
 		}
 		
 		$paidKeyMsg = false;
@@ -2464,10 +2540,19 @@ EOL;
 			return $gen;
 		}
 	}
+	public static function pushCommentSpamIP($m){
+		if(wfUtils::isValidIP($m[1]) && strpos($m[1], '127.0.0') !== 0 ){
+			self::$commentSpamItems[] = trim($m[1]);
+		}
+	}
+	public static function pushCommentSpamHost($m){
+		self::$commentSpamItems[] = trim($m[1]);
+	}
 	public static function preCommentApprovedFilter($approved, $cData){
 		if( $approved == 1 && (! is_user_logged_in()) && wfConfig::get('other_noAnonMemberComments') ){
 			$user = get_user_by('email', trim($cData['comment_author_email']));
 			if($user){
+				wfConfig::inc('totalSpamStopped');	
 				return 0; //hold for moderation if the user is not signed in but used a members email
 			}
 		}
@@ -2476,12 +2561,43 @@ EOL;
 			$wf = new wfScanEngine();
 			try {
 				if($wf->isBadComment($cData['comment_author'], $cData['comment_author_email'], $cData['comment_author_url'],  $cData['comment_author_IP'], $cData['comment_content'])){
+					wfConfig::inc('totalSpamStopped');	
 					return 'spam';
 				}
 			} catch(Exception $e){
 				//This will most likely be an API exception because we can't contact the API, so we ignore it and let the normal comment mechanisms run.
 			}
 		}
+		if(wfConfig::get('isPaid') && ($approved == 1 || $approved == 0) && wfConfig::get('advancedCommentScanning')){
+			$IPs = array();
+			$hosts = array();
+			self::$commentSpamItems = array();
+			preg_replace_callback('/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/', 'wordfence::pushCommentSpamIP', $cData['comment_content']);
+			$IPs =  self::$commentSpamItems;
+			self::$commentSpamItems = array();
+			preg_replace_callback('/https?:\/\/([a-zA-Z0-9\-]+\.[a-zA-Z0-9\-\.]+[a-zA-Z0-9])/i', 'wordfence::pushCommentSpamHost', $cData['comment_content']);
+			$hosts = self::$commentSpamItems;
+			self::$commentSpamItems = array();
+			try {	
+				$api = new wfAPI(wfConfig::get('apiKey'), wfUtils::getWPVersion());
+				$res = $api->call('advanced_comment_scan', array(), array(
+					'author' => $cData['comment_author'],
+					'email' =>  $cData['comment_author_email'],
+					'URL' => $cData['comment_author_url'],
+					'commentIP' => $cData['comment_author_IP'],
+					'wfIP' => wfUtils::getIP(),
+					'hosts' => (sizeof($hosts) > 0 ? implode(',', $hosts) : ''),
+					'IPs' => (sizeof($IPs) > 0 ? implode(',', $IPs) : '')
+					));
+				if(is_array($res) && isset($res['spam']) && $res['spam'] == 1){
+					wfConfig::inc('totalSpamStopped');	
+					return 'spam';
+				}
+			} catch(Exception $e){
+				//API server is probably down
+			}
+		}
+		wfConfig::inc('totalCommentsFiltered');	
 		return $approved;
 	}
 	public static function getMyHomeURL(){
@@ -2492,6 +2608,7 @@ EOL;
 	}
 
 	public static function alert($subject, $alertMsg, $IP){
+		wfConfig::inc('totalAlertsSent');	
 		$emails = wfConfig::getAlertEmails();
 		if(sizeof($emails) < 1){ return; }
 
@@ -2623,6 +2740,10 @@ EOL;
 			}
 		}
 		return self::$debugOn;
+	}
+	//PUBLIC API
+	public static function doNotCache(){ //Call this to prevent Wordfence from caching the current page. 
+		wfCache::doNotCache();
 	}
 }
 ?>

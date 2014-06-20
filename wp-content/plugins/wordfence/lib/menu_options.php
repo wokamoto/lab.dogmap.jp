@@ -23,7 +23,7 @@ var WFSLevels = <?php echo json_encode(wfConfig::$securityLevels); ?>;
 		<?php if(wfConfig::get('isPaid')){ ?>
 		The currently active API Key is a Premium Key. <span style="font-weight: bold; color: #0A0;">Premium scanning enabled!</span>
 		<?php } else {?>
-		The currently active API Key is a <span style="color: #F00; font-weight: bold;">Free Key</a>. <a href="https://www.wordfence.com/wordfence-signup/" target="_blank">Upgrade to Premium Scanning now.</a>
+		The currently active API Key is a <span style="color: #F00; font-weight: bold;">Free Key</a>. <a href="https://www.wordfence.com/wordfence-signup/" target="_blank">Click Here to Upgrade to Wordfence Premium now.</a>
 		<?php } ?>
 	</td></tr>
 	<tr><td colspan="2">
@@ -38,6 +38,10 @@ var WFSLevels = <?php echo json_encode(wfConfig::$securityLevels); ?>;
 	<tr><th class="wfConfigEnable">Enable login security</th><td><input type="checkbox" id="loginSecurityEnabled" class="wfConfigElem" name="loginSecurityEnabled" value="1" <?php $w->cb('loginSecurityEnabled'); ?> />&nbsp;This option enables all "Login Security" options. You can modify individual options further down this page.</td></tr>
 	<tr><td colspan="2">&nbsp;</td></tr>
 	<tr><th class="wfConfigEnable">Enable Live Traffic View</th><td><input type="checkbox" id="liveTrafficEnabled" class="wfConfigElem" name="liveTrafficEnabled" value="1" <?php $w->cb('liveTrafficEnabled'); ?> onclick="WFAD.reloadConfigPage = true; return true;" />&nbsp;This option enables live traffic logging.</td></tr>
+	<tr><td colspan="2">&nbsp;</td></tr>
+	<tr><th class="wfConfigEnable">Advanced Comment Spam Filter</th><td><input type="checkbox" id="advancedCommentScanning" class="wfConfigElem" name="advancedCommentScanning" value="1" <?php $w->cbp('advancedCommentScanning'); if(! wfConfig::get('isPaid')){ ?>onclick="alert('This is a paid feature because it places significant additional load on our servers.'); jQuery('#advancedCommentScanning').attr('checked', false); return false;" <?php } ?> />&nbsp;<span style="color: #F00;">Premium Feature</span> In addition to free comment filtering (see below) this option filters comments against several additional real-time lists of known spammers and infected hosts.</td></tr>
+	<tr><th class="wfConfigEnable">Check if this website is being "Spamvertised"</th><td><input type="checkbox" id="spamvertizeCheck" class="wfConfigElem" name="spamvertizeCheck" value="1" <?php $w->cbp('spamvertizeCheck'); if(! wfConfig::get('isPaid')){ ?>onclick="alert('This is a paid feature because it places significant additional load on our servers.'); jQuery('#spamvertizeCheck').attr('checked', false); return false;" <?php } ?> />&nbsp;<span style="color: #F00;">Premium Feature</span> When doing a scan, Wordfence will check with spam services if your site domain name is appearing as a link in spam emails.</td></tr>
+	<tr><th class="wfConfigEnable">Check if this website IP is generating spam</th><td><input type="checkbox" id="checkSpamIP" class="wfConfigElem" name="checkSpamIP" value="1" <?php $w->cbp('checkSpamIP'); if(! wfConfig::get('isPaid')){ ?>onclick="alert('This is a paid feature because it places significant additional load on our servers.'); jQuery('#checkSpamIP').attr('checked', false); return false;" <?php } ?> />&nbsp;<span style="color: #F00;">Premium Feature</span> When doing a scan, Wordfence will check with spam services if your website IP address is listed as a known source of spam email.</td></tr>
 	<tr><td colspan="2">&nbsp;</td></tr>
 	<?php /* <tr><th class="wfConfigEnable">Enable Performance Monitoring</th><td><input type="checkbox" id="perfLoggingEnabled" class="wfConfigElem" name="perfLoggingEnabled" value="1" <?php $w->cb('perfLoggingEnabled'); ?> onclick="WFAD.reloadConfigPage = true; return true;" />&nbsp;This option enables performance monitoring.</td></tr> */ ?>
 	<tr><td colspan="2">&nbsp;</td></tr>
@@ -244,15 +248,21 @@ var WFSLevels = <?php echo json_encode(wfConfig::$securityLevels); ?>;
 	<tr><th>Don't let WordPress reveal valid users in login errors</th><td><input type="checkbox" id="loginSec_maskLoginErrors" class="wfConfigElem" name="loginSec_maskLoginErrors" <?php $w->cb('loginSec_maskLoginErrors'); ?> /></td></tr>
 	<tr><th>Prevent users registering 'admin' username if it doesn't exist</th><td><input type="checkbox" id="loginSec_blockAdminReg" class="wfConfigElem" name="loginSec_blockAdminReg" <?php $w->cb('loginSec_blockAdminReg'); ?> /></td></tr>
 	<tr><th>Prevent discovery of usernames through '?/author=N' scans</th><td><input type="checkbox" id="loginSec_disableAuthorScan" class="wfConfigElem" name="loginSec_disableAuthorScan" <?php $w->cb('loginSec_disableAuthorScan'); ?> /></td></tr>
+	<tr><th>Immediately block the IP of users who try to sign in as these usernames</th><td><input type="text" name="loginSec_userBlacklist" id="loginSec_userBlacklist" value="<?php echo $w->getHTML('loginSec_userBlacklist'); ?>" size="40" />&nbsp;(Comma separated. Existing users won't be blocked.)</td></tr>
 	<tr><td colspan="2">
 		<div class="wfMarker" id="wfMarkerOtherOptions"></div>
 		<h3 class="wfConfigHeading">Other Options</h3>
 		</td></tr>
+
 	<tr><th>Whitelisted IP addresses that bypass all rules:</th><td><input type="text" name="whitelisted" id="whitelisted" value="<?php echo $w->getHTML('whitelisted'); ?>" size="40" /></td></tr>
 	<tr><th colspan="2" style="color: #999;">Whitelisted IP's must be separated by commas. You can specify ranges using the following format: 123.23.34.[1-50]<br />Wordfence automatically whitelists <a href="http://en.wikipedia.org/wiki/Private_network" target="_blank">private networks</a> because these are not routable on the public Internet.<br /><br /></th></tr>
+
+	<tr><th>Immediately block IP's that access these URLs:</th><td><input type="text" name="bannedURLs" id="bannedURLs" value="<?php echo $w->getHTML('bannedURLs'); ?>" size="40" /></td></tr>
+	<tr><th colspan="2" style="color: #999;">Separate multiple URL's with commas. If you see an attacker repeatedly probing your site for a known vulnerability you can use this to immediately block them.<br /><br /></th></tr>
+
 	<tr><th>Hide WordPress version</th><td><input type="checkbox" id="other_hideWPVersion" class="wfConfigElem" name="other_hideWPVersion" value="1" <?php $w->cb('other_hideWPVersion'); ?> /></td></tr>
 	<tr><th>Hold anonymous comments using member emails for moderation</th><td><input type="checkbox" id="other_noAnonMemberComments" class="wfConfigElem" name="other_noAnonMemberComments" value="1" <?php $w->cb('other_noAnonMemberComments'); ?> /></td></tr>
-	<tr><th>Scan comments for malware and phishing URL's</th><td><input type="checkbox" id="other_scanComments" class="wfConfigElem" name="other_scanComments" value="1" <?php $w->cb('other_scanComments'); ?> /></td></tr>
+	<tr><th>Filter comments for malware and phishing URL's</th><td><input type="checkbox" id="other_scanComments" class="wfConfigElem" name="other_scanComments" value="1" <?php $w->cb('other_scanComments'); ?> /></td></tr>
 	<tr><th>Check password strength on profile update</th><td><input type="checkbox" id="other_pwStrengthOnUpdate" class="wfConfigElem" name="other_pwStrengthOnUpdate" value="1" <?php $w->cb('other_pwStrengthOnUpdate'); ?> /></td></tr>
 	<tr><th>Participate in the Real-Time WordPress Security Network</th><td><input type="checkbox" id="other_WFNet" class="wfConfigElem" name="other_WFNet" value="1" <?php $w->cb('other_WFNet'); ?> /></td></tr>
 	<tr><th>Maximum memory Wordfence can use</th><td><input type="text" id="maxMem" name="maxMem" value="<?php $w->f('maxMem'); ?>" size="4" />Megabytes</td></tr>

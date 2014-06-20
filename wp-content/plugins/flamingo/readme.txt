@@ -2,8 +2,8 @@
 Contributors: takayukister, megumithemes
 Tags: bird, contact, mail, crm
 Requires at least: 3.6
-Tested up to: 3.8.1
-Stable tag: 1.1
+Tested up to: 3.9.1
+Stable tag: 1.1.1
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -33,6 +33,7 @@ Flamingo is a WordPress plugin created to be a total CRM package. With this vers
 * Russian (ru_RU) - [Pavel](http://wlstyling.crimea.ua/)
 * Slovak (sk_SK) - Branco Radenovich
 * Spanish (es_ES) - [Israel Ortuño](http://expander.es/)
+* Thai (th) - [TG Knowledge](http://www.เกร็ดความรู้.com/)
 * Turkish (tr_TR) - Ömür YANIKOĞLU
 * Vietnamese (vi_VN) - [ICA Design](http://www.icadesign.vn/)
 
@@ -49,6 +50,12 @@ If you have created your own language pack, or have an update of an existing one
 
 == Changelog ==
 
+= 1.1.1 =
+
+* Fix: misuse of functions that Akismet 3.0 has marked deprecated.
+* Security fix: some list table columns were not escaped properly.
+* Translation for Thai has been created.
+
 = 1.1 =
 
 * Support CSV export for inbound messages.
@@ -61,3 +68,7 @@ If you have created your own language pack, or have an update of an existing one
 * This version requires WordPress 3.6 or higher.
 
 == Upgrade Notice ==
+
+= 1.1.1 =
+
+This version fixes a security related bug. Upgrade immediately.

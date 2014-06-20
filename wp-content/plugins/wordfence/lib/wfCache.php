@@ -5,6 +5,7 @@ class wfCache {
 	private static $cacheStats = array();
 	private static $cacheClearedThisRequest = false;
 	private static $clearScheduledThisRequest = false;
+	private static $lastRecursiveDeleteError = false;
 	public static function setupCaching(){
 		self::$cacheType = wfConfig::get('cacheType');
 		if(self::$cacheType != 'php' && self::$cacheType != 'falcon'){
@@ -63,7 +64,9 @@ class wfCache {
 		}
 	}
 	public static function redirectFilter($status){
-		define('WFDONOTCACHE', true);
+		if(! defined('WFDONOTCACHE')){
+			define('WFDONOTCACHE', true);
+		}
 		return $status;
 	}
 	public static function isCachable(){
@@ -83,7 +86,7 @@ class wfCache {
 			return false;
 		}
 		if($_SERVER['REQUEST_METHOD'] != 'GET'){ return false; } //Only cache GET's
-		if(strlen($_SERVER['QUERY_STRING']) > 0 && (! preg_match('/^\d+=\d+$/', $_SERVER['QUERY_STRING'])) ){ //Don't cache query strings unless they are /?123132423=123123234 DDoS style.
+		if(isset($_SERVER['QUERY_STRING']) && strlen($_SERVER['QUERY_STRING']) > 0 && (! preg_match('/^\d+=\d+$/', $_SERVER['QUERY_STRING'])) ){ //Don't cache query strings unless they are /?123132423=123123234 DDoS style.
 			return false; 
 		} 
 		//wordpress_logged_in_[hash] cookies indicates logged in
@@ -98,9 +101,19 @@ class wfCache {
 		if($ex){
 			$ex = unserialize($ex);
 			foreach($ex as $v){
-				if($v['pt'] == 's'){ if(strpos($uri, $v['p']) === 0){ return false; } }
-				if($v['pt'] == 'e'){ if(strpos($uri, $v['p']) === (strlen($uri) - strlen($v['p'])) ){ return false; } }
-				if($v['pt'] == 'c'){ if(strpos($uri, $v['p']) !== false){ return false; } }
+				if($v['pt'] == 'eq'){ if(strtolower($uri) == strtolower($v['p'])){ return false; } }
+				if($v['pt'] == 's'){ if(stripos($uri, $v['p']) === 0){ return false; } }
+				if($v['pt'] == 'e'){ if(stripos($uri, $v['p']) === (strlen($uri) - strlen($v['p'])) ){ return false; } }
+				if($v['pt'] == 'c'){ if(stripos($uri, $v['p']) !== false){ return false; } }
+				if($v['pt'] == 'uac'){ if(stripos($_SERVER['HTTP_USER_AGENT'], $v['p']) !== false){ return false; } } //User-agent contains
+				if($v['pt'] == 'uaeq'){ if(strtolower($_SERVER['HTTP_USER_AGENT']) == strtolower($v['p'])){ return false; } } //user-agent equals
+				if($v['pt'] == 'cc'){
+					foreach($_COOKIE as $cookieName){
+						if(stripos($cookieName, $v['p']) !== false){ //Cookie name contains pattern
+							return false;
+						}
+					}
+				}
 			}
 		}
 		return true;
@@ -115,9 +128,16 @@ class wfCache {
 		return false;
 	}
 	public static function obComplete($buffer = ''){
+		if(function_exists('is_404') && is_404()){
+			return false;
+		}
+
 		if(defined('WFDONOTCACHE') || defined('DONOTCACHEPAGE') || defined('DONOTCACHEDB') || defined('DONOTCACHEOBJECT')){  
 			//These constants may have been set after we did the initial isCachable check by e.g. wp_redirect filter. If they're set then just return the buffer and don't cache.
 			return $buffer; 
+		}
+		if(strlen($buffer) < 1000){ //The average web page size is 1246,000 bytes. If web page is less than 1000 bytes, don't cache it. 
+			return $buffer;
 		}
 
 		$file = self::fileFromRequest( ($_SERVER['HTTP_HOST'] ? $_SERVER['HTTP_HOST'] : $_SERVER['SERVER_NAME']), $_SERVER['REQUEST_URI']);
@@ -300,18 +320,32 @@ class wfCache {
 			'dirsDeleted' => 0,
 			'filesDeleted' => 0,
 			'totalData' => 0,
-			'totalErrors' => 0
+			'totalErrors' => 0,
+			'error' => '',
 			);
 		$cacheClearLock = WP_CONTENT_DIR . '/wfcache/clear.lock';
 		if(! is_file($cacheClearLock)){
-			touch($cacheClearLock);
+			if(! touch($cacheClearLock)){
+				self::$cacheStats['error'] = "Could not create a lock file $cacheClearLock to clear the cache.";
+				self::$cacheStats['totalErrors']++;
+				return self::$cacheStats;
+			}
 		}
 		$fp = fopen($cacheClearLock, 'w');
-		if(! $fp){ return; }
+		if(! $fp){ 
+			self::$cacheStats['error'] = "Could not open the lock file $cacheClearLock to clear the cache. Please make sure the directory is writable by your web server.";
+			self::$cacheStats['totalErrors']++;
+			return self::$cacheStats;
+		}
 		if(flock($fp, LOCK_EX | LOCK_NB)){ //non blocking exclusive flock attempt. If we get a lock then it continues and returns true. If we don't lock, then return false, don't block and don't clear the cache. 
 					// This logic means that if a cache clear is currently in progress we don't try to clear the cache.
 					// This prevents web server children from being queued up waiting to be able to also clear the cache. 
+			self::$lastRecursiveDeleteError = false;
 			self::recursiveDelete(WP_CONTENT_DIR . '/wfcache/');
+			if(self::$lastRecursiveDeleteError){
+				self::$cacheStats['error'] = self::$lastRecursiveDeleteError;
+				self::$cacheStats['totalErrors']++;
+			}
 			flock($fp, LOCK_UN);
 		}
 		fclose($fp);
@@ -322,7 +356,9 @@ class wfCache {
 		$files = array_diff(scandir($dir), array('.','..')); 
 		foreach ($files as $file) { 
 			if(is_dir($dir . '/' . $file)){
-				self::recursiveDelete($dir . '/' . $file);
+				if(! self::recursiveDelete($dir . '/' . $file)){
+					return false;
+				}
 			} else {
 				if($file == 'clear.lock'){ continue; } //Don't delete our lock file
 				$size = filesize($dir . '/' . $file);
@@ -330,29 +366,37 @@ class wfCache {
 					self::$cacheStats['totalData'] += round($size / 1024);
 				}
 				if(strpos($dir, 'wfcache/') === false){
-					//error_log("Tried to delete file in invalid dir in cache clear: $dir");
-					return; //Safety check that we're in a subdir of the cache
+					self::$lastRecursiveDeleteError = "Not deleting file in directory $dir because it appears to be in the wrong path.";
+					self::$cacheStats['totalErrors']++;
+					return false; //Safety check that we're in a subdir of the cache
 				}
 				if(@unlink($dir . '/' . $file)){
 					self::$cacheStats['filesDeleted']++;
 				} else {
+					self::$lastRecursiveDeleteError = "Could not delete file " . $dir . "/" . $file . " : " . wfUtils::getLastError();
 					self::$cacheStats['totalErrors']++;
+					return false;
 				}
 			}
 		} 
 		if($dir != WP_CONTENT_DIR . '/wfcache/'){
 			if(strpos($dir, 'wfcache/') === false){
-				//error_log("Tried to delete invalid dir in cache clear: $dir");
+				self::$lastRecursiveDeleteError = "Not deleting directory $dir because it appears to be in the wrong path.";
+				self::$cacheStats['totalErrors']++;
 				return; //Safety check that we're in a subdir of the cache
 			}
 			if(@rmdir($dir)){
 				self::$cacheStats['dirsDeleted']++;
 			} else {
+				self::$lastRecursiveDeleteError = "Could not delete directory $dir : " . wfUtils::getLastError();
 				self::$cacheStats['totalErrors']++;
+				return false;
 			}
+			return true;
 		} else {
 			return true;
 		}
+		return true;
 	}
 	public static function addHtaccessCode($action){
 		if($action != 'add' && $action != 'remove'){
@@ -417,6 +461,31 @@ class wfCache {
 		if(wfConfig::get('allowHTTPSCaching')){
 			$sslString = "";
 		}
+		$otherRewriteConds = "";
+		$ex = wfConfig::get('cacheExclusions', false);
+		if($ex){
+			$ex = unserialize($ex);
+			foreach($ex as $v){
+				if($v['pt'] == 'uac'){
+					$otherRewriteConds .= "\n\tRewriteCond %{HTTP_USER_AGENT} !" . self::regexSpaceFix(preg_quote($v['p'])) . " [NC]";
+				}
+				if($v['pt'] == 'uaeq'){
+					$otherRewriteConds .= "\n\tRewriteCond %{HTTP_USER_AGENT} !^" . self::regexSpaceFix(preg_quote($v['p'])) . "$ [NC]";
+				}
+				if($v['pt'] == 'cc'){
+					$otherRewriteConds .= "\n\tRewriteCond %{HTTP_COOKIE} !" . self::regexSpaceFix(preg_quote($v['p'])) . " [NC]";
+				}
+			}
+		}
+
+		//We exclude URLs that are banned so that Wordfence PHP code can catch the IP address, then ban that IP and the ban is added to .htaccess. 
+		$excludedURLs = "";
+		if(wfConfig::get('bannedURLs', false)){
+			foreach(explode(',', wfConfig::get('bannedURLs', false)) as $URL){
+				$excludedURLs .= "RewriteCond  %{REQUEST_URI} !^" .  self::regexSpaceFix(preg_quote(trim($URL))) . "$\n\t";
+			}
+		}
+
 		$code = <<<EOT
 #WFCACHECODE - Do not remove this line. Disable Web Caching in Wordfence to remove this data.
 <IfModule mod_deflate.c>
@@ -442,6 +511,10 @@ class wfCache {
 	Header set Vary "Accept-Encoding, Cookie"
 </IfModule>
 <IfModule mod_rewrite.c>
+	#Prevents garbled chars in cached files if there is no default charset.
+	AddDefaultCharset utf-8
+
+	#Cache rules:
 	RewriteEngine On
 	RewriteBase /
 	RewriteCond %{HTTPS} on
@@ -452,8 +525,9 @@ class wfCache {
 	{$sslString}
 	RewriteCond %{QUERY_STRING} ^(?:\d+=\d+)?$
 	RewriteCond %{REQUEST_URI} (?:\/|\.html)$ [NC]
+	{$excludedURLs}
 	RewriteCond %{HTTP_COOKIE} !(comment_author|wp\-postpass|wf_logout|wordpress_logged_in|wptouch_switch_toggle|wpmp_switcher) [NC]
-
+	{$otherRewriteConds}
 	RewriteCond %{REQUEST_URI} \/*([^\/]*)\/*([^\/]*)\/*([^\/]*)\/*([^\/]*)\/*([^\/]*)(.*)$
 	RewriteCond "%{DOCUMENT_ROOT}{$pathPrefix}/wp-content/wfcache/%{HTTP_HOST}_%1/%2~%3~%4~%5~%6_wfcache%{ENV:WRDFNC_HTTPS}.html%{ENV:WRDFNC_ENC}" -f
 	RewriteRule \/*([^\/]*)\/*([^\/]*)\/*([^\/]*)\/*([^\/]*)\/*([^\/]*)(.*)$ "{$pathPrefix}/wp-content/wfcache/%{HTTP_HOST}_{$matchCaps}_wfcache%{ENV:WRDFNC_HTTPS}.html%{ENV:WRDFNC_ENC}" [L]
@@ -461,6 +535,9 @@ class wfCache {
 #Do not remove this line. Disable Web caching in Wordfence to remove this data - WFCACHECODE
 EOT;
 		return $code;
+	}
+	private static function regexSpaceFix($str){
+		return str_replace(' ', '\\s', $str);
 	}
 	public static function scheduleUpdateBlockedIPs(){
 		wp_clear_scheduled_hook('wordfence_update_blocked_IPs');
@@ -590,5 +667,10 @@ EOT;
 			}
 		}
 		return false;
+	}
+	public static function doNotCache(){
+		if(! defined('WFDONOTCACHE')){
+			define('WFDONOTCACHE', true);
+		}
 	}
 }

@@ -4,7 +4,7 @@ Plugin Name: Crazy Bone
 Plugin URI: https://github.com/wokamoto/crazy-bone
 Description: Tracks user name, time of login, IP address and browser user agent.
 Author: wokamoto
-Version: 0.5.2
+Version: 0.5.3
 Author URI: http://dogmap.jp/
 Text Domain: user-login-log
 Domain Path: /languages/
@@ -13,7 +13,7 @@ License:
  Released under the GPL license
   http://www.gnu.org/copyleft/gpl.html
 
-  Copyright 2013 (email : wokamoto1973@gmail.com)
+  Copyright 2013-2014 (email : wokamoto1973@gmail.com)
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -34,6 +34,12 @@ if (!class_exists('DetectBrowsersController'))
 if (!class_exists('DetectCountriesController'))
 	require_once( dirname(__FILE__) . '/includes/detect_countries.php' );
 
+$crazy_bone = crazy_bone::get_instance();
+$crazy_bone->init();
+
+register_activation_hook(__FILE__, array($crazy_bone, 'activate'));
+register_deactivation_hook(__FILE__, array($crazy_bone, 'deactivate'));
+
 load_plugin_textdomain(crazy_bone::TEXT_DOMAIN, false, dirname(plugin_basename(__FILE__)) . '/languages/');
 
 class crazy_bone {
@@ -53,21 +59,29 @@ class crazy_bone {
 
 	private $ull_table = 'user_login_log';
 	private $admin_action;
-	private $plugin_version;
 	private $options;
 
 	static $instance;
+	static $plugin_version;
 
-	function __construct(){
+	private function __construct() {}
+
+	public static function get_instance() {
+		if( !isset( self::$instance ) ) {
+			$c = __CLASS__;
+			self::$instance = new $c();    
+		}
+		return self::$instance;
+	}
+
+	public function init() {
 		global $wpdb;
 
-		self::$instance = $this;
+		$data = get_file_data(__FILE__, array('version' => 'Version'));
+		self::$plugin_version = isset($data['version']) ? $data['version'] : '';
 
 		$this->ull_table = $wpdb->prefix.$this->ull_table;
 		$this->admin_action = admin_url('profile.php') . '?page=' . plugin_basename(__FILE__);
-
-		$data = get_file_data(__FILE__, array('version' => 'Version'));
-		$this->plugin_version = isset($data['version']) ? $data['version'] : '';
 
 		$this->options = get_option( self::OPTION_NAME, array() );
 		if (!is_array($this->options))
@@ -92,9 +106,6 @@ class crazy_bone {
 
 		add_action('wp_ajax_dismiss-ull-wp-pointer', array($this, 'ajax_dismiss'));
 		add_action('wp_ajax_nopriv_dismiss-ull-wp-pointer', array($this, 'ajax_dismiss'));
-
-		register_activation_hook(__FILE__, array($this, 'activate'));
-		register_deactivation_hook(__FILE__, array($this, 'deactivate'));
 	}
 
 	public function activate(){
@@ -149,7 +160,7 @@ CREATE TABLE `{$this->ull_table}` (
 
 	public function admin_bar_init() {
 		add_action('admin_bar_menu',  array($this, 'customize_admin_bar_menu'), 9999);
-		wp_enqueue_style('user_login_log', plugins_url('css/user_login_log.css', __FILE__), array(), $this->plugin_version);
+		wp_enqueue_style('user_login_log', plugins_url('css/user_login_log.css', __FILE__), array(), self::$plugin_version);
 
 		$realtime_check = apply_filters('crazy_bone::realtime_check', true);
 		if ($realtime_check) {
@@ -986,5 +997,3 @@ if ($errors != 'invalid_username')
 <?php
 	}
 }
-
-new crazy_bone();
